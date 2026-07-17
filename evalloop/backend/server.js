@@ -6,10 +6,7 @@ import apiRoutes from './routes/api.js';
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-const allowedOrigins = process.env.FRONTEND_ORIGIN
-  ? [process.env.FRONTEND_ORIGIN]
-  : ['http://localhost:3000', 'http://localhost:5173'];
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json({ limit: '1mb' }));
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'evalloop-api' }));
 app.use('/api', apiRoutes);

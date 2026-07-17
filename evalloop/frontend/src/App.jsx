@@ -53,8 +53,7 @@ function App() {
       await addLine(`[00:03] ⚡ Generating 20 edge case tests for ${agentType} agent...`, 'section');
       let tests = fallbackTests;
       if (!forceDemo) tests = (await postJson('/generate-tests', { agentPrompt: sourcePrompt, agentType })).tests;
-      let currentPrompt = sourcePrompt, allFailures = [], before = 0, after = 0, iterations = 0;
-      let rewrite = { improvedPrompt: sourcePrompt, changes: [] };
+      let currentPrompt = sourcePrompt, allFailures = [], before = 0, after = 0, rewrite = fallbackRewrite, iterations = 0;
       for (let iteration = 1; iteration <= maxIterations; iteration++) {
         iterations = iteration;
         const passCountStart = allFailures.length;
