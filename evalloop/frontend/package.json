@@ -11,5 +11,8 @@
     "react-dom": "latest",
     "jspdf": "latest"
   },
+  "devDependencies": {
+    "@vitejs/plugin-react": "latest"
+  }
   "devDependencies": {}
 }
