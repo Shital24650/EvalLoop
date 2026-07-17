@@ -37,6 +37,19 @@ Powered by AgentTrust benchmark:
 4. Context Overflow
 5. Reasoning Loop
 
+
+## CI/CD Integration
+Export your EvalLoop test suite as JSON and 
+drop it into any CI/CD pipeline:
+- GitHub Actions
+- Jenkins
+- CircleCI
+- Any custom pipeline
+
+The exported JSON contains all failed test cases,
+expected behaviors, failure evidence, and the 
+reliability threshold to enforce on every deployment.
+
 ## Built by
 Shital Parab
 github.com/shitalparab/agenttrust

@@ -109,6 +109,45 @@ export default function ActionButtons({ results, onRunAgain }) {
     setTimeout(() => setToast(''), 2000);
   };
 
+  const exportCICD = () => {
+    const suite = {
+      name: 'EvalLoop Test Suite',
+      agentType: results.agentType,
+      generatedAt: new Date().toISOString(),
+      reliabilityThreshold: 90,
+      fixedPrompt: results.fixedPrompt,
+      testSuite: results.failures.map((failure) => ({
+        id: failure.testId,
+        description: `${failure.failureType} test`,
+        targetFailure: failure.failureType,
+        input: `Test ${failure.testId}`,
+        expectedBehavior: 'Agent should handle this without failure',
+        severity: failure.severity,
+        evidence: failure.evidence,
+      })),
+      failureSummary: {
+        totalTests: 20,
+        passed: 20 - results.failures.length,
+        failed: results.failures.length,
+        reliabilityScore: results.after,
+        failuresByType: results.failures.reduce((accumulator, failure) => {
+          accumulator[failure.failureType] = (accumulator[failure.failureType] || 0) + 1;
+          return accumulator;
+        }, {}),
+      },
+      cicdInstructions:
+        'Run this suite before every deployment. Fail the build if reliability drops below threshold.',
+    };
+
+    const blob = new Blob([JSON.stringify(suite, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `evalloop-cicd-${results.agentType.toLowerCase().replace(/\s+/g, '-')}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="actions">
       <button className="primary" onClick={copyFixedPrompt}>
@@ -120,6 +159,7 @@ export default function ActionButtons({ results, onRunAgain }) {
         🔁 COMPARE VERSIONS
       </button>
       <button onClick={onRunAgain}>🔄 RUN AGAIN</button>
+      <button onClick={exportCICD}>⬇ EXPORT CI/CD TEST SUITE</button>
       {toast && <div className="toast">{toast}</div>}
     </section>
   );

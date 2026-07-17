@@ -128,6 +128,29 @@ Return ONLY valid JSON:
   } catch (error) { next(error); }
 });
 
+
+router.post('/test-chain', async (req, res, next) => {
+  try {
+    const { agents, agentType } = req.body;
+    const system = `Test this multi-agent pipeline for a ${agentType} workflow. Evaluate each agent prompt for reliability. Find where failures compound. Return ONLY valid JSON:
+{
+  "chainScore": number,
+  "agents": [
+    {
+      "id": 1,
+      "label": "Agent 1 (Research)",
+      "score": number,
+      "status": "strong" | "weak" | "critical",
+      "failures": ["failure description"]
+    }
+  ],
+  "weakLink": number,
+  "recommendation": "what to fix"
+}`;
+    res.json(await askJson(system, JSON.stringify({ agents })));
+  } catch (error) { next(error); }
+});
+
 router.post('/compare-versions', async (req, res, next) => {
   try {
     const { promptV1, promptV2, agentType } = req.body;

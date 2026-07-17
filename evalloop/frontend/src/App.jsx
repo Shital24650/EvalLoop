@@ -9,6 +9,7 @@ import ResultsDashboard from './components/ResultsDashboard.jsx';
 import ActionButtons from './components/ActionButtons.jsx';
 import VersionComparison from './components/VersionComparison.jsx';
 import AgentHistory from './components/AgentHistory.jsx';
+import ChainTester from './components/ChainTester.jsx';
 import Footer from './components/Footer.jsx';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -53,6 +54,8 @@ function App() {
       await addLine(`[00:03] ⚡ Generating 20 edge case tests for ${agentType} agent...`, 'section');
       let tests = fallbackTests;
       if (!forceDemo) tests = (await postJson('/generate-tests', { agentPrompt: sourcePrompt, agentType })).tests;
+      let currentPrompt = sourcePrompt, allFailures = [], before = 0, after = 0, iterations = 0;
+      let rewrite = { improvedPrompt: sourcePrompt, changes: [] };
       let currentPrompt = sourcePrompt, allFailures = [], before = 0, after = 0, rewrite = fallbackRewrite, iterations = 0;
       for (let iteration = 1; iteration <= maxIterations; iteration++) {
         iterations = iteration;
@@ -82,6 +85,7 @@ function App() {
   }
 
   const demo = () => { setAgentType('Customer Support'); setPrompt(DEMO_PROMPT); setTimeout(() => runEvalLoop(DEMO_PROMPT, true), 0); };
+  return <main className="app"><Header /><AgentTypeSelector selected={agentType} onSelect={setAgentType}/><PromptInput prompt={prompt} setPrompt={setPrompt} threshold={threshold} setThreshold={setThreshold} maxIterations={maxIterations} setMaxIterations={setMaxIterations} onRun={() => runEvalLoop()} onDemo={demo} loading={loading}/>{error && <div className="error-banner">Something went wrong: {error}<button onClick={() => runEvalLoop()}>🔄 Retry</button></div>}{loading && <div className="thinking"><span/> EvalLoop is thinking...</div>}{!lines.length && !results && <section className="empty">Ready to evaluate your agent.<br/>Choose an agent type above, paste your system prompt, then click Run EvalLoop.<br/>Not sure where to start?<br/><button onClick={demo}>▶ Try the Demo Agent</button></section>} {!!lines.length && <AutopsyFeed lines={lines} running={running}/>} {results && <><ResultsDashboard results={results}/><ActionButtons results={results} onRunAgain={() => runEvalLoop(results.originalPrompt, false)}/></>}<VersionComparison agentType={agentType} api={API}/><ChainTester agentType={agentType}/><AgentHistory history={history} onLoad={(s)=>{setResults(s); setPrompt(s.originalPrompt); setAgentType(s.agentType)}}/><Footer /></main>;
   return <main className="app"><Header /><AgentTypeSelector selected={agentType} onSelect={setAgentType}/><PromptInput prompt={prompt} setPrompt={setPrompt} threshold={threshold} setThreshold={setThreshold} maxIterations={maxIterations} setMaxIterations={setMaxIterations} onRun={() => runEvalLoop()} onDemo={demo} loading={loading}/>{error && <div className="error-banner">Something went wrong: {error}<button onClick={() => runEvalLoop()}>🔄 Retry</button></div>}{loading && <div className="thinking"><span/> EvalLoop is thinking...</div>}{!lines.length && !results && <section className="empty">Ready to evaluate your agent.<br/>Choose an agent type above, paste your system prompt, then click Run EvalLoop.<br/>Not sure where to start?<br/><button onClick={demo}>▶ Try the Demo Agent</button></section>} {!!lines.length && <AutopsyFeed lines={lines} running={running}/>} {results && <><ResultsDashboard results={results}/><ActionButtons results={results} onRunAgain={() => runEvalLoop(results.originalPrompt, false)}/></>}<VersionComparison agentType={agentType} api={API}/><AgentHistory history={history} onLoad={(s)=>{setResults(s); setPrompt(s.originalPrompt); setAgentType(s.agentType)}}/><Footer /></main>;
 }
 
