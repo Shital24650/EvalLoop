@@ -81,3 +81,13 @@ EvalLoop includes deploy-ready configuration for:
 - Docker (`Dockerfile`)
 - Render (`render.yaml`)
 - Railway (`railway.json`)
+
+## Screenshots and Demo GIF
+Add screenshots from your deployed Vercel app and a short demo GIF before submission.
+
+## Future Roadmap
+- Team workspaces and shared prompt registries
+- Custom evaluator marketplace
+- Scheduled regression runs
+- Native GitHub Checks annotations from SARIF/JUnit exports
+- Hosted benchmark leaderboard powered by AgentTrust

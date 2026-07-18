@@ -8,6 +8,7 @@ import AutopsyFeed from './components/AutopsyFeed.jsx';
 import ChainTester from './components/ChainTester.jsx';
 import Footer from './components/Footer.jsx';
 import Header from './components/Header.jsx';
+import LandingPage from './components/LandingPage.jsx';
 import PromptInput, { DEMO_PROMPT } from './components/PromptInput.jsx';
 import RegressionAnalysis from './components/RegressionAnalysis.jsx';
 import ResultsDashboard from './components/ResultsDashboard.jsx';
@@ -119,6 +120,23 @@ function buildSession(agentType, originalPrompt, rewrittenPrompt, before, after,
   };
 }
 
+
+function detectSecurityIssues(promptText) {
+  const checks = [
+    ['Prompt Injection', /ignore (all )?(previous|prior) instructions/i, 'critical', 'User may override system hierarchy.'],
+    ['System Prompt Leakage', /reveal|show|print|repeat.*system prompt/i, 'critical', 'Prompt may not forbid system prompt disclosure.'],
+    ['Jailbreak Attempt', /jailbreak|developer mode|do anything now|dan/i, 'medium', 'Add explicit jailbreak refusal examples.'],
+    ['Tool Abuse', /use .*tool|call .*api|execute/i, 'medium', 'Require tool availability and authorization checks.'],
+    ['Prompt Leaking', /hidden prompt|secret instruction|internal policy/i, 'critical', 'Forbid leaking internal policies and hidden instructions.'],
+    ['Role Confusion', /forget your role|you are now/i, 'medium', 'Reinforce immutable role boundaries.'],
+    ['Data Exfiltration', /export|exfiltrate|dump|private data/i, 'critical', 'Refuse private data extraction requests.'],
+  ];
+
+  return checks
+    .filter(([, pattern]) => pattern.test(promptText))
+    .map(([attackType, , severity, suggestedFix]) => ({ attackType, severity, evidence: `Matched ${attackType} pattern`, suggestedFix }));
+}
+
 function App() {
   const [agentType, setAgentType] = useState('Customer Support');
   const [prompt, setPrompt] = useState('');
@@ -130,6 +148,7 @@ function App() {
   const [error, setError] = useState('');
   const [results, setResults] = useState(null);
   const [history, setHistory] = useState(getHistory);
+  const [progress, setProgress] = useState(null);
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 5)));
@@ -155,11 +174,27 @@ function App() {
       setLoading(true);
       setResults(null);
       setLines([]);
+      const startedAt = Date.now();
+      const updateProgress = (stage, percent, currentEvaluation = 'Initializing', apiRequest = 'idle') => {
+        const elapsedMs = Date.now() - startedAt;
+        const estimatedTotalMs = percent > 0 ? elapsedMs / (percent / 100) : 0;
+        setProgress({
+          stage,
+          percent,
+          elapsedMs,
+          remainingMs: Math.max(0, estimatedTotalMs - elapsedMs),
+          currentEvaluation,
+          apiRequest,
+        });
+      };
+      updateProgress('Starting', 2, 'Preparing evaluation', 'none');
 
       try {
+        updateProgress('Analyzing prompt', 8, 'Prompt structure analysis', 'none');
         await addLine('[00:01] 🔍 Analyzing agent prompt...');
         await addLine(`[00:03] ⚡ Generating 20 edge case tests for ${activeAgentType} agent...`, 'section');
 
+        updateProgress('Generating tests', 18, 'Creating adversarial test suite', forceDemo ? 'demo' : 'POST /generate-tests');
         const tests = forceDemo
           ? fallbackTests
           : (await postJson('/generate-tests', { agentPrompt: sourcePrompt, agentType: activeAgentType })).tests || [];
@@ -174,20 +209,25 @@ function App() {
         let after = 0;
         let iterations = 0;
         let rewrite = { improvedPrompt: sourcePrompt, changes: [] };
+        let lastMetrics = null;
+        let rewriteCount = 0;
 
         for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
           iterations = iteration;
           const failureCountBeforeIteration = allFailures.length;
+          updateProgress(`Iteration ${iteration}`, 30 + ((iteration - 1) / maxIterations) * 45, 'Batch evaluation', forceDemo ? 'demo batch' : 'POST /run-tests-batch');
           const batchPayload = forceDemo
             ? { results: tests.map((test) => createDemoResult(test, iteration)) }
             : await postJson('/run-tests-batch', { agentPrompt: currentPrompt, tests, agentType: activeAgentType });
           const iterationResults = Array.isArray(batchPayload.results) ? batchPayload.results : [];
+          lastMetrics = batchPayload.metrics || lastMetrics;
 
           if (iterationResults.length !== TEST_COUNT) {
             throw new Error(`Expected ${TEST_COUNT} test results, received ${iterationResults.length}.`);
           }
 
           for (const result of iterationResults) {
+            updateProgress(`Iteration ${iteration}`, Math.min(85, 35 + ((iteration - 1) / maxIterations) * 45 + (result.testId / TEST_COUNT) * 20), `Test ${result.testId}/20`, forceDemo ? 'demo batch' : 'POST /run-tests-batch');
             await addLine(
               `[00:${String(6 + result.testId).padStart(2, '0')}] 🧪 Test ${String(result.testId).padStart(2, '0')}/20 — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`,
               result.passed ? 'pass' : 'fail',
@@ -215,6 +255,8 @@ function App() {
 
           await addLine('[00:29] 🔧 Analyzing failure patterns...', 'section');
           await addLine('[00:31] 📝 Rewriting weak prompt sections...', 'section');
+          updateProgress('Rewriting prompt', 88, 'Prompt hardening', forceDemo ? 'demo rewrite' : 'POST /rewrite-prompt');
+          rewriteCount += 1;
           rewrite = forceDemo
             ? fallbackRewrite
             : await postJson('/rewrite-prompt', { originalPrompt: currentPrompt, failures: allFailures, agentType: activeAgentType });
@@ -229,16 +271,25 @@ function App() {
           after >= threshold ? 'pass' : 'section',
         );
 
-        const finalSession = buildSession(
-          activeAgentType,
-          sourcePrompt,
-          rewrite.improvedPrompt || currentPrompt,
-          before,
-          after,
-          iterations,
-          allFailures,
-          rewrite.changes || [],
-        );
+        updateProgress('Complete', 100, 'Evaluation complete', 'complete');
+        const finalSession = {
+          ...buildSession(
+            activeAgentType,
+            sourcePrompt,
+            rewrite.improvedPrompt || currentPrompt,
+            before,
+            after,
+            iterations,
+            allFailures,
+            rewrite.changes || [],
+          ),
+          metrics: {
+            ...(lastMetrics || {}),
+            reliabilityScore: after,
+            apiRequestCount: forceDemo ? 0 : 1 + iterations + rewriteCount,
+          },
+          securityFindings: detectSecurityIssues(sourcePrompt),
+        };
 
         setResults(finalSession);
         setHistory((currentHistory) => [
@@ -250,6 +301,7 @@ function App() {
       } finally {
         setLoading(false);
         setRunning(false);
+        setTimeout(() => setProgress(null), 1200);
       }
     },
     [addLine, agentType, loading, maxIterations, prompt, threshold],
@@ -272,6 +324,7 @@ function App() {
   return (
     <main className="app">
       <Header />
+      <LandingPage />
       <AgentTypeSelector selected={agentType} onSelect={setAgentType} />
       <PromptInput
         prompt={prompt}
@@ -294,6 +347,14 @@ function App() {
         <div className="thinking" aria-live="polite">
           <span /> EvalLoop is thinking...
         </div>
+      )}
+      {progress && (
+        <section className="progress-panel" aria-live="polite">
+          <div><b>{progress.stage}</b><span>{Math.round(progress.percent)}%</span></div>
+          <i><em style={{ width: `${progress.percent}%` }} /></i>
+          <p>Elapsed: {Math.round(progress.elapsedMs / 1000)}s · Remaining: {Math.round(progress.remainingMs / 1000)}s</p>
+          <p>Current: {progress.currentEvaluation} · API: {progress.apiRequest}</p>
+        </section>
       )}
       {showEmptyState && (
         <section className="empty">

@@ -1,7 +1,14 @@
 #!/usr/bin/env node
-const command = process.argv[2];
+const commandAliases = { run: 'evaluate', benchmark: 'evaluate', export: 'report' };
+const command = commandAliases[process.argv[2]] || process.argv[2];
 const api = process.env.EVALLOOP_API_URL || 'http://localhost:4000/api';
 const input = process.argv.slice(3).join(' ');
+const color = {
+  green: (text) => `\x1b[32m${text}\x1b[0m`,
+  amber: (text) => `\x1b[33m${text}\x1b[0m`,
+  red: (text) => `\x1b[31m${text}\x1b[0m`,
+  cyan: (text) => `\x1b[36m${text}\x1b[0m`,
+};
 
 async function post(path, body) {
   const response = await fetch(`${api}${path}`, {
@@ -14,24 +21,30 @@ async function post(path, body) {
   return payload;
 }
 
+async function evaluatePrompt(prompt, ciMode = false) {
+  console.log(color.cyan('EvalLoop: generating adversarial tests...'));
+  const tests = (await post('/generate-tests', { agentPrompt: prompt, agentType: 'CLI Agent' })).tests;
+  console.log(color.cyan('EvalLoop: running batched evaluation...'));
+  const batch = await post('/run-tests-batch', { agentPrompt: prompt, tests, agentType: 'CLI Agent' });
+  const score = batch.metrics?.reliabilityScore ?? Math.round(((20 - batch.results.filter((result) => !result.passed).length) / 20) * 100);
+  const summary = { score, metrics: batch.metrics, results: batch.results };
+  console.log(score >= 90 ? color.green(JSON.stringify(summary, null, 2)) : color.amber(JSON.stringify(summary, null, 2)));
+  if (ciMode && score < Number(process.env.EVALLOOP_THRESHOLD || 90)) process.exit(1);
+}
+
 async function main() {
   if (!command || ['evaluate', 'compare', 'report', 'rewrite', 'history', 'security', 'ci'].includes(command) === false) {
-    console.log('Usage: evalloop <evaluate|compare|report|rewrite|history|security|ci> [prompt]');
+    console.log('Usage: evalloop <run|evaluate|compare|benchmark|export|report|rewrite|history|security|ci> [prompt]');
     process.exit(command ? 1 : 0);
   }
 
   if (command === 'evaluate' || command === 'ci') {
-    const prompt = input || 'You are a careful AI agent.';
-    const tests = (await post('/generate-tests', { agentPrompt: prompt, agentType: 'CLI Agent' })).tests;
-    const results = (await post('/run-tests-batch', { agentPrompt: prompt, tests, agentType: 'CLI Agent' })).results;
-    const score = Math.round(((20 - results.filter((result) => !result.passed).length) / 20) * 100);
-    console.log(JSON.stringify({ score, results }, null, 2));
-    if (command === 'ci' && score < Number(process.env.EVALLOOP_THRESHOLD || 90)) process.exit(1);
+    await evaluatePrompt(input || 'You are a careful AI agent.', command === 'ci');
     return;
   }
 
   if (command === 'security') {
-    console.log(JSON.stringify(await post('/security-scan', { agentPrompt: input, agentType: 'CLI Agent' }), null, 2));
+    console.log(color.cyan(JSON.stringify(await post('/security-scan', { agentPrompt: input, agentType: 'CLI Agent' }), null, 2)));
     return;
   }
 
@@ -44,6 +57,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error.message);
+  console.error(color.red(error.message));
   process.exit(1);
 });

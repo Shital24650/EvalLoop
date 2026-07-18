@@ -21,11 +21,31 @@ function downloadText(filename, text, type = 'text/plain') {
 }
 
 function buildMarkdownReport(results) {
+  const metrics = results.metrics || {};
   return `# EvalLoop Report
 
+## Executive Summary
+
 - Agent Type: ${results.agentType}
+- Timestamp: ${metrics.generatedAt || new Date().toISOString()}
+- Model: ${metrics.model || 'gpt-5.6'}
 - Reliability: ${results.before}% → ${results.after}%
+- Agent Trust Score: ${metrics.agentTrustScore ?? results.after}
+- Confidence Score: ${metrics.confidenceScore ?? 'n/a'}
+- Risk Score: ${metrics.riskScore ?? 'n/a'}
+- Latency: ${metrics.latencyMs ?? 'n/a'}ms
+- API Calls: ${metrics.apiRequestCount ?? 'n/a'}
+- Estimated Tokens: ${metrics.estimatedTokenUsage?.total ?? 'n/a'}
+- Estimated Cost: $${metrics.estimatedApiCostUsd ?? '0.0000'}
 - Failures: ${results.failures.length}
+
+## Recommendations
+
+${results.changes?.map((change) => `- ${change.reason}`).join('\n') || '- No rewrite recommendations recorded.'}
+
+## Security Findings
+
+${results.securityFindings?.map((finding) => `- ${finding.attackType} (${finding.severity}): ${finding.suggestedFix}`).join('\n') || '- No lightweight prompt security findings detected.'}
 
 ## Failed Tests
 ${results.failures
@@ -178,7 +198,7 @@ export default function ActionButtons({ results, onRunAgain }) {
 
   const exportDevOpsReports = () => {
     const base = `evalloop-${results.agentType.toLowerCase().replace(/\s+/g, '-')}`;
-    downloadText(`${base}.json`, JSON.stringify(results, null, 2), 'application/json');
+    downloadText(`${base}.json`, JSON.stringify({ executiveSummary: { agentType: results.agentType, metrics: results.metrics, securityFindings: results.securityFindings, generatedAt: new Date().toISOString() }, ...results }, null, 2), 'application/json');
     downloadText(`${base}.md`, buildMarkdownReport(results), 'text/markdown');
     downloadText(`${base}.html`, buildHtmlReport(results), 'text/html');
     downloadText(`${base}.sarif`, JSON.stringify(buildSarifReport(results), null, 2), 'application/sarif+json');
