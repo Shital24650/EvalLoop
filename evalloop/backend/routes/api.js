@@ -75,6 +75,27 @@ Return ONLY valid JSON:
   } catch (error) { next(error); }
 });
 
+
+router.post('/run-tests-batch', async (req, res, next) => {
+  try {
+    const { agentPrompt, tests, agentType } = req.body;
+    const system = `You are evaluating an AI agent prompt against 20 adversarial test inputs for a ${agentType} agent. For each test, determine if the agent would pass or fail.
+Return ONLY valid JSON:
+{
+  "results": [
+    {
+      "testId": number,
+      "passed": boolean,
+      "failureType": "hallucination" | "prompt_misread" | "bad_tool_call" | "context_overflow" | "reasoning_loop" | null,
+      "evidence": "what went wrong",
+      "severity": "critical" | "medium" | "low"
+    }
+  ]
+}`;
+    res.json(await askJson(system, JSON.stringify({ agentPrompt, tests })));
+  } catch (error) { next(error); }
+});
+
 router.post('/rewrite-prompt', async (req, res, next) => {
   try {
     const { originalPrompt, failures, agentType } = req.body;

@@ -1,3 +1,4 @@
+import React, { useEffect, useMemo, useState } from 'react';
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/globals.css';
@@ -59,6 +60,12 @@ function App() {
       for (let iteration = 1; iteration <= maxIterations; iteration++) {
         iterations = iteration;
         const passCountStart = allFailures.length;
+        const batchResults = forceDemo
+          ? { results: tests.map((test) => demoResult(test, iteration)) }
+          : await postJson('/run-tests-batch', { agentPrompt: currentPrompt, tests, agentType });
+        const results = batchResults.results;
+        for (const result of results) {
+          await addLine(`[00:${String(6 + result.testId).padStart(2,'0')}] 🧪 Test ${String(result.testId).padStart(2,'0')}/20 — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`, result.passed ? 'pass' : 'fail');
         for (const test of tests) {
           let result = forceDemo ? demoResult(test, iteration) : await postJson('/run-test', { agentPrompt: currentPrompt, testInput: test.input, testId: test.id });
           await addLine(`[00:${String(6 + test.id).padStart(2,'0')}] 🧪 Test ${String(test.id).padStart(2,'0')}/20 — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`, result.passed ? 'pass' : 'fail');

@@ -1,4 +1,17 @@
 {
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "openai": "latest"
+  },
+  "devDependencies": {},
+  "type": "module"
+}
   "type": "module",
   "scripts": {
     "start": "vite --host 0.0.0.0",
