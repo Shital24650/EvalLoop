@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/globals.css';
+import AttackSimulator from './components/AttackSimulator.jsx';
+import EvaluationTimeline from './components/EvaluationTimeline.jsx';
 import ActionButtons from './components/ActionButtons.jsx';
 import AgentHistory from './components/AgentHistory.jsx';
 import AgentTypeSelector from './components/AgentTypeSelector.jsx';
@@ -313,6 +315,11 @@ function App() {
     setTimeout(() => runEvalLoop(DEMO_PROMPT, true, 'Customer Support'), 0);
   }, [runEvalLoop]);
 
+  const runAttack = useCallback((attackPrompt) => {
+    setPrompt(attackPrompt);
+    runEvalLoop(attackPrompt, false, agentType);
+  }, [agentType, runEvalLoop]);
+
   const loadSession = useCallback((session) => {
     setResults(session);
     setPrompt(session.originalPrompt);
@@ -337,6 +344,7 @@ function App() {
         onDemo={runDemo}
         loading={loading}
       />
+      <AttackSimulator onRunAttack={runAttack} />
       {error && (
         <div className="error-banner" role="alert">
           <span>Something went wrong: {error}</span>
@@ -349,12 +357,15 @@ function App() {
         </div>
       )}
       {progress && (
+        <>
+        <EvaluationTimeline progress={progress} />
         <section className="progress-panel" aria-live="polite">
           <div><b>{progress.stage}</b><span>{Math.round(progress.percent)}%</span></div>
           <i><em style={{ width: `${progress.percent}%` }} /></i>
           <p>Elapsed: {Math.round(progress.elapsedMs / 1000)}s · Remaining: {Math.round(progress.remainingMs / 1000)}s</p>
           <p>Current: {progress.currentEvaluation} · API: {progress.apiRequest}</p>
         </section>
+        </>
       )}
       {showEmptyState && (
         <section className="empty">
