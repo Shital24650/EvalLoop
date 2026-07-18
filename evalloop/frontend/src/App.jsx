@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/globals.css';
 import Header from './components/Header.jsx';
@@ -65,6 +66,9 @@ function App() {
         const results = batchResults.results;
         for (const result of results) {
           await addLine(`[00:${String(6 + result.testId).padStart(2,'0')}] 🧪 Test ${String(result.testId).padStart(2,'0')}/20 — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`, result.passed ? 'pass' : 'fail');
+        for (const test of tests) {
+          let result = forceDemo ? demoResult(test, iteration) : await postJson('/run-test', { agentPrompt: currentPrompt, testInput: test.input, testId: test.id });
+          await addLine(`[00:${String(6 + test.id).padStart(2,'0')}] 🧪 Test ${String(test.id).padStart(2,'0')}/20 — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`, result.passed ? 'pass' : 'fail');
           if (!result.passed) { allFailures.push(result); await addLine(`         → Failure: ${failureLabels[result.failureType] || 'Failure'} detected`, 'evidence'); await addLine(`         → Evidence: ${result.evidence}`, 'evidence'); }
         }
         const iterationFailures = allFailures.length - passCountStart;
