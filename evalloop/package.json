@@ -1,0 +1,22 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev",
+    "start": "node backend/server.js",
+    "check": "node --check backend/server.js && node --check backend/routes/api.js && node --check backend/middleware.js && node --check backend/openapi.js && node --check api/[...path].js && node --check frontend/vite.config.js && node --check cli/evalloop.js && node --check plugins/index.js && node --check tests/smoke.mjs",
+    "test": "node tests/smoke.mjs",
+    "ci": "node cli/evalloop.js ci",
+    "lint": "node --check backend/server.js && node --check backend/routes/api.js && node --check backend/middleware.js && node --check backend/openapi.js && node --check api/[...path].js && node --check frontend/vite.config.js && node --check cli/evalloop.js && node --check plugins/index.js && node --check tests/smoke.mjs"
+  },
+  "dependencies": {
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "openai": "latest"
+  },
+  "devDependencies": {},
+  "bin": {
+    "evalloop": "./cli/evalloop.js"
+  }
+}
