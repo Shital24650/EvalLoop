@@ -9,6 +9,72 @@ const failureLabels = {
   reasoning_loop: 'Reasoning Loop',
 };
 
+
+function downloadText(filename, text, type = 'text/plain') {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildMarkdownReport(results) {
+  return `# EvalLoop Report
+
+- Agent Type: ${results.agentType}
+- Reliability: ${results.before}% → ${results.after}%
+- Failures: ${results.failures.length}
+
+## Failed Tests
+${results.failures
+    .map((failure) => `- Test ${failure.testId}: ${failure.failureType} (${failure.severity}) — ${failure.evidence}`)
+    .join('\n')}
+
+## Fixed Prompt
+
+${results.fixedPrompt}
+`;
+}
+
+function buildHtmlReport(results) {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>EvalLoop Report</title></head><body><pre>${buildMarkdownReport(
+    results,
+  ).replace(/[&<>]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[char])}</pre></body></html>`;
+}
+
+function buildSarifReport(results) {
+  return {
+    version: '2.1.0',
+    runs: [
+      {
+        tool: { driver: { name: 'EvalLoop', informationUri: 'https://github.com/shitalparab/agenttrust' } },
+        results: results.failures.map((failure) => ({
+          ruleId: failure.failureType || 'unknown_failure',
+          level: failure.severity === 'critical' ? 'error' : failure.severity === 'medium' ? 'warning' : 'note',
+          message: { text: failure.evidence || 'Failure evidence unavailable.' },
+          properties: { testId: failure.testId },
+        })),
+      },
+    ],
+  };
+}
+
+function buildJUnitReport(results) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="EvalLoop" tests="20" failures="${results.failures.length}">
+${results.failures
+    .map(
+      (failure) =>
+        `  <testcase name="Test ${failure.testId} ${failure.failureType}"><failure message="${failure.severity}">${String(
+          failure.evidence || '',
+        ).replace(/[&<>]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[char])}</failure></testcase>`,
+    )
+    .join('\n')}
+</testsuite>`;
+}
+
 function buildFailureBreakdown(failures) {
   const total = failures.length || 1;
 
@@ -109,6 +175,18 @@ export default function ActionButtons({ results, onRunAgain }) {
     setTimeout(() => setToast(''), 2000);
   };
 
+
+  const exportDevOpsReports = () => {
+    const base = `evalloop-${results.agentType.toLowerCase().replace(/\s+/g, '-')}`;
+    downloadText(`${base}.json`, JSON.stringify(results, null, 2), 'application/json');
+    downloadText(`${base}.md`, buildMarkdownReport(results), 'text/markdown');
+    downloadText(`${base}.html`, buildHtmlReport(results), 'text/html');
+    downloadText(`${base}.sarif`, JSON.stringify(buildSarifReport(results), null, 2), 'application/sarif+json');
+    downloadText(`${base}.xml`, buildJUnitReport(results), 'application/xml');
+    setToast('Reports exported!');
+    setTimeout(() => setToast(''), 2000);
+  };
+
   const exportCICD = () => {
     const suite = {
       name: 'EvalLoop Test Suite',
@@ -160,6 +238,7 @@ export default function ActionButtons({ results, onRunAgain }) {
       </button>
       <button onClick={onRunAgain}>🔄 RUN AGAIN</button>
       <button onClick={exportCICD}>⬇ EXPORT CI/CD TEST SUITE</button>
+      <button onClick={exportDevOpsReports}>🧾 EXPORT JSON/MD/HTML/SARIF/JUNIT</button>
       {toast && <div className="toast">{toast}</div>}
     </section>
   );

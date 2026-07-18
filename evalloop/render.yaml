@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: evalloop-api
+    env: node
+    rootDir: evalloop
+    buildCommand: npm install && npm --prefix frontend install && npm --prefix frontend run build
+    startCommand: node backend/server.js

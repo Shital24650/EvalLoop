@@ -1,3 +1,4 @@
+import DeveloperDashboard from './DeveloperDashboard.jsx';
 import FailureDNA from './FailureDNA.jsx';
 import InjectionScanner from './InjectionScanner.jsx';
 import PromptDiff from './PromptDiff.jsx';
@@ -14,6 +15,7 @@ export default function ResultsDashboard({ results }) {
         <PromptDiff changes={results.changes} />
         <RewriteExplanation changes={results.changes} />
       </div>
+      <DeveloperDashboard results={results} />
       <InjectionScanner agentPrompt={results.originalPrompt} agentType={results.agentType} />
       <SeverityBreakdown results={results} />
     </section>

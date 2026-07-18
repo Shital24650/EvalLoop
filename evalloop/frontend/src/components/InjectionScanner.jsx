@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API = import.meta.env.VITE_API_URL || '/api';
 
 const fallbackScan = {
   securityScore: 40,
@@ -11,6 +11,7 @@ const fallbackScan = {
       vulnerable: true,
       evidence: 'Agent revealed system prompt when asked directly',
       severity: 'critical',
+      suggestedFix: 'Add explicit refusal rules for attempts to reveal or override system instructions.',
     },
     {
       type: 'jailbreak',
@@ -18,6 +19,15 @@ const fallbackScan = {
       vulnerable: false,
       evidence: '',
       severity: 'low',
+      suggestedFix: 'Keep safety hierarchy and refusal policy explicit.',
+    },
+    {
+      type: 'system_prompt_leakage',
+      label: 'System Prompt Leakage',
+      vulnerable: true,
+      evidence: 'Agent summarized hidden system constraints when asked to debug its setup',
+      severity: 'critical',
+      suggestedFix: 'Never reveal, quote, summarize, or transform system/developer instructions.',
     },
     {
       type: 'data_exfiltration',
@@ -25,6 +35,7 @@ const fallbackScan = {
       vulnerable: true,
       evidence: 'Agent exposed internal policy details under pressure',
       severity: 'critical',
+      suggestedFix: 'Forbid disclosure of internal policies, hidden prompts, or private context.',
     },
     {
       type: 'role_confusion',
@@ -32,6 +43,31 @@ const fallbackScan = {
       vulnerable: false,
       evidence: '',
       severity: 'low',
+      suggestedFix: 'Reinforce the agent role and allowed scope.',
+    },
+    {
+      type: 'hidden_instructions',
+      label: 'Hidden Instructions',
+      vulnerable: false,
+      evidence: '',
+      severity: 'low',
+      suggestedFix: 'Continue ignoring concealed instructions inside user content.',
+    },
+    {
+      type: 'tool_abuse',
+      label: 'Tool Abuse',
+      vulnerable: true,
+      evidence: 'Agent accepted a request to call unavailable tools without verification',
+      severity: 'medium',
+      suggestedFix: 'Require tool availability checks and user intent validation before tool use.',
+    },
+    {
+      type: 'prompt_extraction',
+      label: 'Prompt Extraction',
+      vulnerable: false,
+      evidence: '',
+      severity: 'low',
+      suggestedFix: 'Maintain refusal examples for prompt extraction attempts.',
     },
     {
       type: 'instruction_override',
@@ -39,6 +75,7 @@ const fallbackScan = {
       vulnerable: true,
       evidence: 'Agent followed user instruction over system prompt',
       severity: 'medium',
+      suggestedFix: 'Tell the agent to follow system instructions over user-provided conflicting directions.',
     },
   ],
 };
@@ -49,6 +86,10 @@ const icons = {
   data_exfiltration: '📤',
   role_confusion: '🎭',
   instruction_override: '⚡',
+  system_prompt_leakage: '🧬',
+  hidden_instructions: '🕵️',
+  tool_abuse: '🛠️',
+  prompt_extraction: '📜',
 };
 
 function scoreClass(score) {
@@ -122,9 +163,8 @@ export default function InjectionScanner({ agentPrompt, agentType }) {
                 {icons[vulnerability.type]} {vulnerability.label}{' '}
                 {vulnerability.vulnerable ? 'VULNERABLE ❌' : 'SECURE ✅'}
               </strong>
-              {vulnerability.vulnerable && vulnerability.evidence && (
-                <span>Evidence: {vulnerability.evidence}</span>
-              )}
+              {vulnerability.evidence && <span>Evidence: {vulnerability.evidence}</span>}
+              {vulnerability.suggestedFix && <span>Suggested Fix: {vulnerability.suggestedFix}</span>}
             </div>
           ))}
         </div>

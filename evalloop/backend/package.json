@@ -1,8 +1,9 @@
 {
-  "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "check": "node --check server.js && node --check routes/api.js && node --check middleware.js && node --check openapi.js",
+    "lint": "node --check server.js && node --check routes/api.js && node --check middleware.js && node --check openapi.js"
   },
   "dependencies": {
     "cors": "latest",
@@ -10,5 +11,6 @@
     "express": "latest",
     "openai": "latest"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "type": "module"
 }

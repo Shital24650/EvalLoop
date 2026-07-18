@@ -38,6 +38,18 @@ Powered by AgentTrust benchmark:
 5. Reasoning Loop
 
 
+## Vercel Deployment
+Set the Vercel root directory to `evalloop`.
+
+- Install Command: `npm install && npm --prefix frontend install`
+- Build Command: `npm --prefix frontend run build`
+- Output Directory: `frontend/dist`
+
+Environment variables:
+- `OPENAI_API_KEY` — required for backend API routes
+- `FRONTEND_ORIGIN` — optional comma-separated allowed frontend origins
+- `VITE_API_URL` — optional; use `/api` for same-origin Vercel deployments
+
 ## CI/CD Integration
 Export your EvalLoop test suite as JSON and 
 drop it into any CI/CD pipeline:
@@ -54,3 +66,18 @@ reliability threshold to enforce on every deployment.
 Shital Parab
 github.com/shitalparab/agenttrust
 OpenAI Build Week 2026
+
+## Developer Tooling
+- CLI: `node cli/evalloop.js evaluate "your prompt"`
+- CI gate: `EVALLOOP_THRESHOLD=90 node cli/evalloop.js ci "your prompt"`
+- API docs: `/api/openapi.json` and `/api/docs`
+- Architecture: `docs/ARCHITECTURE.md`
+- Developer guide: `docs/DEVELOPER_GUIDE.md`
+- Contribution guide: `docs/CONTRIBUTING.md`
+
+## Deployment Targets
+EvalLoop includes deploy-ready configuration for:
+- Vercel (`vercel.json`)
+- Docker (`Dockerfile`)
+- Render (`render.yaml`)
+- Railway (`railway.json`)
