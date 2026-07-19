@@ -104,13 +104,14 @@ function extractJson(text) {
 async function askJson(system, user) {
   requireKey();
   const response = await client.chat.completions.create({
-    model: MODEL,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-  });
+  model: MODEL,
+  max_tokens: 2048,
+  response_format: { type: 'json_object' },
+  messages: [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ],
+});
   return extractJson(response.choices?.[0]?.message?.content);
 }
 
