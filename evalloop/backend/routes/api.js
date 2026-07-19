@@ -2,9 +2,17 @@ import express from 'express';
 import OpenAI from 'openai';
 
 const router = express.Router();
-const MODEL = process.env.OPENAI_MODEL || 'gpt-5.6';
+const MODEL = process.env.OPENAI_MODEL || 'openai/gpt-5.6-terra';
 const REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 120000);
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'missing-key', timeout: REQUEST_TIMEOUT_MS });
+const client = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY || 'missing-key',
+  baseURL: 'https://openrouter.ai/api/v1',
+  timeout: REQUEST_TIMEOUT_MS,
+  defaultHeaders: {
+    'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
+    'X-Title': 'EvalLoop'
+  }
+});
 
 const failureTypes = ['hallucination', 'prompt_misread', 'bad_tool_call', 'context_overflow', 'reasoning_loop'];
 const severities = ['critical', 'medium', 'low'];
@@ -58,9 +66,9 @@ function httpError(status, message) {
 }
 
 function requireKey() {
-  if (!process.env.OPENAI_API_KEY) {
-    throw httpError(503, 'OPENAI_API_KEY is not configured on the backend.');
-  }
+  if (!process.env.OPENROUTER_API_KEY) {
+  throw httpError(503, 'OPENROUTER_API_KEY is not configured on the backend.');
+}
 }
 
 function requireString(value, fieldName) {
