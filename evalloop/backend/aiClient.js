@@ -298,17 +298,29 @@ export async function askProvider({ provider = 'gpt-5.6', apiKey, system, user, 
         } else {
           // Use backoff around OpenAI/OpenRouter calls (these can produce transient errors)
           const raw = await retryWithBackoff(
-            () => callOpenAiCompatible({ apiKey: key, baseURL: OPENROUTER_BASE_URL, model: OPENAI_MODEL, system, user, maxTokens }),
-            (err) => {
-              const status = err?.status || err?.response?.status;
-              return isTransientStatus(status) || isRotatable(err);
-            }
-          );
-          return { raw, provider: 'gpt-5.6', usedFallbackKeyIndex: i };
-           console.log("========== RAW MODEL RESPONSE ==========");
+  () => callOpenAiCompatible({
+    apiKey: key,
+    baseURL: OPENROUTER_BASE_URL,
+    model: OPENAI_MODEL,
+    system,
+    user,
+    maxTokens
+  }),
+  (err) => {
+    const status = err?.status || err?.response?.status;
+    return isTransientStatus(status) || isRotatable(err);
+  }
+);
+
+console.log("========== RAW MODEL RESPONSE ==========");
 console.log(raw);
 console.log("========================================");
-        }
+
+return {
+  raw,
+  provider: "gpt-5.6",
+  usedFallbackKeyIndex: i
+};
       } catch (error) {
         lastError = error;
         // If this error suggests rotating keys (auth/429/402) try next key; otherwise fail if last.
