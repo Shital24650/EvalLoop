@@ -151,10 +151,27 @@ function App() {
   const [results, setResults] = useState(null);
   const [history, setHistory] = useState(getHistory);
   const [progress, setProgress] = useState(null);
+  const [model, setModel] = useState('gpt-5.6');
+  const [useOwnKey, setUseOwnKey] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [modelAvailability, setModelAvailability] = useState(null);
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 5)));
   }, [history]);
+
+  useEffect(() => {
+    fetch(getApiUrl('/models'))
+      .then((response) => response.json())
+      .then((data) => {
+        const availability = {};
+        (data.models || []).forEach((entry) => {
+          availability[entry.id] = entry.serverKeyAvailable;
+        });
+        setModelAvailability(availability);
+      })
+      .catch(() => setModelAvailability(null));
+  }, []);
 
   const addLine = useCallback(async (text, type = 'neutral') => {
     setLines((currentLines) => [...currentLines, { text, type }]);
@@ -170,6 +187,11 @@ function App() {
       }
 
       const activeAgentType = overrideAgentType || agentType;
+      if (useOwnKey && !apiKey.trim()) {
+        setError('Enter your API key, or turn off "Use your own API key".');
+        return;
+      }
+      const modelPayload = { model, ...(useOwnKey && apiKey.trim() ? { apiKey: apiKey.trim() } : {}) };
 
       setError('');
       setRunning(true);
@@ -199,7 +221,7 @@ function App() {
         updateProgress('Generating tests', 18, 'Creating adversarial test suite', forceDemo ? 'demo' : 'POST /generate-tests');
         const tests = forceDemo
           ? fallbackTests
-          : (await postJson('/generate-tests', { agentPrompt: sourcePrompt, agentType: activeAgentType })).tests || [];
+          : (await postJson('/generate-tests', { agentPrompt: sourcePrompt, agentType: activeAgentType, ...modelPayload })).tests || [];
 
         if (tests.length !== TEST_COUNT) {
           throw new Error(`Expected ${TEST_COUNT} generated tests, received ${tests.length}.`);
@@ -220,7 +242,7 @@ function App() {
           updateProgress(`Iteration ${iteration}`, 30 + ((iteration - 1) / maxIterations) * 45, 'Batch evaluation', forceDemo ? 'demo batch' : 'POST /run-tests-batch');
           const batchPayload = forceDemo
             ? { results: tests.map((test) => createDemoResult(test, iteration)) }
-            : await postJson('/run-tests-batch', { agentPrompt: currentPrompt, tests, agentType: activeAgentType });
+            : await postJson('/run-tests-batch', { agentPrompt: currentPrompt, tests, agentType: activeAgentType, ...modelPayload });
           const iterationResults = Array.isArray(batchPayload.results) ? batchPayload.results : [];
           lastMetrics = batchPayload.metrics || lastMetrics;
 
@@ -261,7 +283,7 @@ function App() {
           rewriteCount += 1;
           rewrite = forceDemo
             ? fallbackRewrite
-            : await postJson('/rewrite-prompt', { originalPrompt: currentPrompt, failures: allFailures, agentType: activeAgentType });
+            : await postJson('/rewrite-prompt', { originalPrompt: currentPrompt, failures: allFailures, agentType: activeAgentType, ...modelPayload });
           currentPrompt = rewrite.improvedPrompt || currentPrompt;
           await addLine(`[00:33] 🔁 Starting Iteration ${iteration + 1}...`, 'section');
         }
@@ -306,7 +328,7 @@ function App() {
         setTimeout(() => setProgress(null), 1200);
       }
     },
-    [addLine, agentType, loading, maxIterations, prompt, threshold],
+    [addLine, agentType, apiKey, loading, maxIterations, model, prompt, threshold, useOwnKey],
   );
 
   const runDemo = useCallback(() => {
@@ -340,6 +362,13 @@ function App() {
         setThreshold={setThreshold}
         maxIterations={maxIterations}
         setMaxIterations={setMaxIterations}
+        model={model}
+        setModel={setModel}
+        useOwnKey={useOwnKey}
+        setUseOwnKey={setUseOwnKey}
+        apiKey={apiKey}
+        setApiKey={setApiKey}
+        modelAvailability={modelAvailability}
         onRun={() => runEvalLoop()}
         onDemo={runDemo}
         loading={loading}
