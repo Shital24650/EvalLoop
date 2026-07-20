@@ -189,8 +189,7 @@ function validateAndExtractJson(text, schemaHint) {
     }
   }
     }
-  }
-}
+  
 
 async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
   const { raw, provider: usedProvider } = await askProvider({ provider, apiKey, system, user, maxTokens });
