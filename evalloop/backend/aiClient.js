@@ -235,7 +235,7 @@ async function callGemini({ apiKey, model, system, user }) {
   for (let m of modelsToTry) {
     try {
       return await retryWithBackoff(
-        () => callGeminiSingle({ apiKey, model: m, system, user }),
+        () => callGeminiSingle({ apiKey: key, model: m, system, user }),
         (err) => isTransientStatus(err?.status) || (err?.status === 404) // retry on transient and try next on 404
       );
     } catch (err) {
@@ -300,7 +300,8 @@ export async function askProvider({ provider = 'gpt-5.6', apiKey, system, user, 
           return { raw, provider: 'gemini', usedFallbackKeyIndex: i };
         } else {
           // Use backoff around OpenAI/OpenRouter calls (these can produce transient errors)
-          const isOfficialOpenAiKey = key && typeof key === 'string' && key.startsWith('sk-');
+          // Treat keys that start with 'sk-or-' as OpenRouter keys; otherwise 'sk-' implies OpenAI
+          const isOfficialOpenAiKey = key && typeof key === 'string' && key.startsWith('sk-') && !key.startsWith('sk-or-');
           const raw = await retryWithBackoff(
   () =>
     callOpenAiCompatible({
