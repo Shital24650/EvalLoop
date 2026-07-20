@@ -140,7 +140,19 @@ export default function InjectionScanner({ agentPrompt, agentType }) {
       <button className="primary" disabled={loading} onClick={startScan}>
         {loading ? 'SCANNING...' : '▶ RUN SECURITY SCAN'}
       </button>
-      {error && <p className="hint">Demo security scan shown because API returned: {error}</p>}
+      {error && (
+  <div className="hint">
+    <strong>⚠ Live Security Scan Unavailable</strong>
+    <br />
+    The selected API key has exhausted its credits.
+    <br />
+    Showing a sample security report so you can continue exploring EvalLoop's security analysis workflow.
+    <br />
+    Add another API key or recharge your provider credits to run a live security scan.
+    <br />
+    <small>API response: {error}</small>
+  </div>
+)}
       {scan && (
         <div className="scan-results">
           <h4>SECURITY SCORE</h4>
