@@ -22,6 +22,13 @@ export default function PromptInput({
   setThreshold,
   maxIterations,
   setMaxIterations,
+  model,
+  setModel,
+  useOwnKey,
+  setUseOwnKey,
+  apiKey,
+  setApiKey,
+  modelAvailability,
   onRun,
   onDemo,
   loading,
@@ -51,7 +58,41 @@ export default function PromptInput({
             ))}
           </select>
         </label>
+        <label>
+          Model
+          <select value={model} onChange={(event) => setModel(event.target.value)}>
+            <option value="gpt-5.6">GPT-5.6</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </label>
       </div>
+
+      <div className="controls byok-row">
+        <label className="checkbox-inline">
+          <input
+            type="checkbox"
+            checked={useOwnKey}
+            onChange={(event) => setUseOwnKey(event.target.checked)}
+          />
+          Use your own API key
+        </label>
+        {useOwnKey && (
+          <input
+            type="password"
+            className="byok-input"
+            placeholder={model === 'gemini' ? 'Your Gemini API key' : 'Your OpenAI/OpenRouter API key'}
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            autoComplete="off"
+          />
+        )}
+        {!useOwnKey && modelAvailability && modelAvailability[model] === false && (
+          <span className="key-warning">
+            No server key configured for this model — enable "Use your own API key" to run it.
+          </span>
+        )}
+      </div>
+
       <button className="primary" disabled={loading} onClick={onRun}>
         ▶ RUN EVALLOOP
       </button>
