@@ -10,28 +10,50 @@ import PromptDiff from './PromptDiff.jsx';
 import ReliabilityScore from './ReliabilityScore.jsx';
 import RewriteExplanation from './RewriteExplanation.jsx';
 import SeverityBreakdown from './SeverityBreakdown.jsx';
+import ModelCard from './ModelCard.jsx';
+import WhyScore from './WhyScore.jsx';
 
 export default function ResultsDashboard({ results }) {
+  const metrics = results.metrics || {};
+  const sampleSecurityNotice = metrics?.apiRequestCount === 0; // demo/sample runs flagged with 0
+
   return (
-    <section className="results slide">
+    <section className="results slide polished-dashboard">
+      <div className="top-row">
+        <ModelCard metrics={metrics} modelSelection={results.model} />
+        <TrustGauge score={metrics?.agentTrustScore ?? results.after} />
+        <TrustBadge score={metrics?.agentTrustScore ?? results.after} />
+      </div>
+
       <div className="dash-grid">
         <ReliabilityScore results={results} />
         <FailureDNA failures={results.failures} />
         <PromptDiff changes={results.changes} />
         <RewriteExplanation changes={results.changes} />
       </div>
+
       <div className="wow-grid">
-        <TrustGauge score={results.metrics?.agentTrustScore ?? results.after} />
-        <SecurityRadar metrics={results.metrics} />
+        <SecurityRadar metrics={metrics} />
+        <LatencyDashboard metrics={metrics} />
       </div>
+
+      {sampleSecurityNotice && (
+        <div className="info-banner" role="status" aria-live="polite">
+          ℹ Security scan unavailable (API credits exhausted). Showing a sample security report for demonstration purposes.
+        </div>
+      )}
+
       <DeveloperDashboard results={results} />
+
       <div className="wow-grid">
         <FailureHeatmap failures={results.failures} iterations={results.iterations} />
-        <LatencyDashboard metrics={results.metrics} />
+        <SeverityBreakdown results={results} />
       </div>
-      <TrustBadge score={results.metrics?.agentTrustScore ?? results.after} />
-      <InjectionScanner agentPrompt={results.originalPrompt} agentType={results.agentType} />
-      <SeverityBreakdown results={results} />
+
+      <div className="bottom-row">
+        <InjectionScanner agentPrompt={results.originalPrompt} agentType={results.agentType} />
+        <WhyScore metrics={metrics} failures={results.failures} />
+      </div>
     </section>
   );
 }
