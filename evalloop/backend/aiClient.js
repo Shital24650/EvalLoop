@@ -305,6 +305,9 @@ export async function askProvider({ provider = 'gpt-5.6', apiKey, system, user, 
             }
           );
           return { raw, provider: 'gpt-5.6', usedFallbackKeyIndex: i };
+           console.log("========== RAW MODEL RESPONSE ==========");
+console.log(raw);
+console.log("========================================");
         }
       } catch (error) {
         lastError = error;
