@@ -235,7 +235,7 @@ async function callGemini({ apiKey, model, system, user }) {
   for (let m of modelsToTry) {
     try {
       return await retryWithBackoff(
-        () => callGeminiSingle({ apiKey: key, model: m, system, user }),
+        () => callGeminiSingle({ apiKey: apiKey, model: m, system, user }),
         (err) => isTransientStatus(err?.status) || (err?.status === 404) // retry on transient and try next on 404
       );
     } catch (err) {
@@ -323,8 +323,8 @@ return {
   provider: 'gpt-5.6',
   usedFallbackKeyIndex: i,
 };
-         }
-       }catch (error) {
+          }
+        }catch (error) {
         lastError = error;
         // If this error suggests rotating keys (auth/429/402) try next key; otherwise fail if last.
         if (!isRotatable(error) || i === keyPool.length - 1) {
