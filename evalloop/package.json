@@ -11,11 +11,12 @@
     "coverage": "npm test && mkdir -p reports && echo \"coverage: smoke+contract\" > reports/coverage.txt"
   },
   "dependencies": {
-    "cors": "latest",
-    "dotenv": "latest",
-    "express": "latest",
-    "openai": "latest"
-  },
+  "cors": "latest",
+  "dotenv": "latest",
+  "express": "latest",
+  "openai": "latest",
+  "express-rate-limit": "latest"
+}
   "devDependencies": {},
   "bin": {
     "evalloop": "./cli/evalloop.js"
