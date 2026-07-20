@@ -1,0 +1,4 @@
+-- Reverted UI to original dark theme and merged UX improvements.
+-- Files modified: restored globals.css to previous dark theme (with small polish), kept improved components and logic already applied.
+
+-- Notes: No backend changes, API endpoints unchanged. UX features (friendly errors, progress panel, model card, why score, success banner, improved empty state) remain integrated and now restyled to match original dark UI.
