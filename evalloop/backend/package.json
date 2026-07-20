@@ -9,7 +9,8 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
-    "openai": "latest"
+    "openai": "latest",
+    "express-rate-limit": "latest"
   },
   "devDependencies": {},
   "type": "module"
