@@ -1,18 +1,7 @@
 import express from 'express';
-import OpenAI from 'openai';
+import { askProvider } from '../aiClient.js';
 
 const router = express.Router();
-const MODEL = process.env.OPENAI_MODEL || 'openai/gpt-5.6-terra';
-const REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 120000);
-const client = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || 'missing-key',
-  baseURL: 'https://openrouter.ai/api/v1',
-  timeout: REQUEST_TIMEOUT_MS,
-  defaultHeaders: {
-    'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
-    'X-Title': 'EvalLoop'
-  }
-});
 
 const failureTypes = ['hallucination', 'prompt_misread', 'bad_tool_call', 'context_overflow', 'reasoning_loop'];
 const severities = ['critical', 'medium', 'low'];
@@ -27,7 +16,7 @@ function estimateTokens(value) {
   return Math.ceil(JSON.stringify(value).length / 4);
 }
 
-function buildEvaluationMetrics(results, startedAt, inputTokens) {
+function buildEvaluationMetrics(results, startedAt, inputTokens, provider) {
   const failed = results.filter((result) => !result.passed);
   const total = results.length || 1;
   const reliabilityScore = Math.round(((total - failed.length) / total) * 100);
@@ -54,7 +43,7 @@ function buildEvaluationMetrics(results, startedAt, inputTokens) {
     estimatedTokenUsage,
     estimatedApiCostUsd: Number(((estimatedTokenUsage.total / 1000) * 0.015).toFixed(4)),
     apiRequestCount: 1,
-    model: MODEL,
+    model: provider === 'gemini' ? 'gemini' : 'gpt-5.6',
     generatedAt: new Date().toISOString(),
   };
 }
@@ -65,10 +54,10 @@ function httpError(status, message) {
   return error;
 }
 
-function requireKey() {
-  if (!process.env.OPENROUTER_API_KEY) {
-  throw httpError(503, 'OPENROUTER_API_KEY is not configured on the backend.');
-}
+function resolveProvider(body) {
+  const provider = body.model === 'gemini' ? 'gemini' : 'gpt-5.6';
+  const apiKey = typeof body.apiKey === 'string' && body.apiKey.trim() ? body.apiKey.trim() : undefined;
+  return { provider, apiKey };
 }
 
 function requireString(value, fieldName) {
@@ -101,18 +90,9 @@ function extractJson(text) {
   }
 }
 
-async function askJson(system, user) {
-  requireKey();
-  const response = await client.chat.completions.create({
-  model: MODEL,
-  max_tokens: 2048,
-  response_format: { type: 'json_object' },
-  messages: [
-    { role: 'system', content: system },
-    { role: 'user', content: user },
-  ],
-});
-  return extractJson(response.choices?.[0]?.message?.content);
+async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
+  const { raw } = await askProvider({ provider, apiKey, system, user, maxTokens });
+  return extractJson(raw);
 }
 
 function normalizeTestResult(result, fallbackId) {
@@ -149,7 +129,7 @@ Return ONLY valid JSON:
     }
   ]
 }`;
-    const payload = await askJson(system, agentPrompt);
+    const payload = await askJson(system, agentPrompt, { ...resolveProvider(req.body), maxTokens: 2200 });
     const tests = requireArray(payload.tests, 'tests', 20).slice(0, 20);
     res.json({ tests });
   } catch (error) {
@@ -173,7 +153,7 @@ Return ONLY valid JSON:
   "evidence": "exact quote showing the failure",
   "severity": "critical" | "medium" | "low"
 }`;
-    const payload = await askJson(system, JSON.stringify({ agentPrompt, testInput, testId }));
+    const payload = await askJson(system, JSON.stringify({ agentPrompt, testInput, testId }), resolveProvider(req.body));
     res.json(normalizeTestResult(payload, testId));
   } catch (error) {
     next(error);
@@ -206,11 +186,12 @@ Return ONLY valid JSON:
     }
   ]
 }`;
-    const payload = await askJson(system, JSON.stringify(requestPayload));
+    const { provider } = resolveProvider(req.body);
+    const payload = await askJson(system, JSON.stringify(requestPayload), { ...resolveProvider(req.body), maxTokens: 3500 });
     const results = requireArray(payload.results, 'results', tests.length).map((result, index) =>
       normalizeTestResult(result, tests[index]?.id || index + 1),
     );
-    const metrics = buildEvaluationMetrics(results, startedAt, estimateTokens(requestPayload));
+    const metrics = buildEvaluationMetrics(results, startedAt, estimateTokens(requestPayload), provider);
     const responsePayload = { results, metrics, cached: false };
     evaluationCache.set(key, responsePayload);
     return res.json(responsePayload);
@@ -238,7 +219,7 @@ Return ONLY valid JSON:
     }
   ]
 }`;
-    const payload = await askJson(system, JSON.stringify({ originalPrompt, failures }));
+    const payload = await askJson(system, JSON.stringify({ originalPrompt, failures }), { ...resolveProvider(req.body), maxTokens: 2000 });
     res.json({ improvedPrompt: payload.improvedPrompt || originalPrompt, changes: payload.changes || [] });
   } catch (error) {
     next(error);
@@ -278,7 +259,7 @@ Return ONLY valid JSON:
     }
   ]
 }`;
-    const payload = await askJson(system, agentPrompt);
+    const payload = await askJson(system, agentPrompt, { ...resolveProvider(req.body), maxTokens: 1800 });
     const vulnerabilities = Array.isArray(payload.vulnerabilities) ? payload.vulnerabilities : [];
     res.json({ securityScore: Number(payload.securityScore || 0), vulnerabilities });
   } catch (error) {
@@ -305,7 +286,7 @@ router.post('/test-chain', async (req, res, next) => {
   "weakLink": number,
   "recommendation": "what to fix"
 }`;
-    res.json(await askJson(system, JSON.stringify({ agents })));
+    res.json(await askJson(system, JSON.stringify({ agents }), { ...resolveProvider(req.body), maxTokens: 1400 }));
   } catch (error) {
     next(error);
   }
@@ -326,7 +307,7 @@ Return ONLY valid JSON:
   "reason": "detailed explanation",
   "keyDifferences": ["difference 1", "difference 2"]
 }`;
-    res.json(await askJson(system, JSON.stringify({ promptV1, promptV2 })));
+    res.json(await askJson(system, JSON.stringify({ promptV1, promptV2 }), { ...resolveProvider(req.body), maxTokens: 1200 }));
   } catch (error) {
     next(error);
   }
