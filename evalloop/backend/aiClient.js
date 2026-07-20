@@ -146,7 +146,7 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
   max_tokens: effectiveMaxTokens,
   temperature: 0,
   response_format: { type: 'json_object' },  // ← ADD THIS BACK
-  messages,
+  messages: fallbackMessages,
 });
         return response.choices?.[0]?.message?.content;
       } catch (err2) {
@@ -320,7 +320,8 @@ return {
   provider: 'gpt-5.6',
   usedFallbackKeyIndex: i,
 };
-      } catch (error) {
+           }
+             }catch (error) {
         lastError = error;
         // If this error suggests rotating keys (auth/429/402) try next key; otherwise fail if last.
         if (!isRotatable(error) || i === keyPool.length - 1) {
