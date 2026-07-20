@@ -1,43 +1,33 @@
-/* Re-applied original dark theme globals.css from prior commit with small polishing tweaks for spacing, shadows, and components. */
-:root{--bg-primary:#081225;--bg-surface:#0e1722;--bg-elevated:linear-gradient(180deg,#0d1826,#07121a);--border:#111827;--text-primary:#F8FAFC;--text-secondary:#9CA3AF;--accent:#F5A623;--accent-2:#FFB74D;--success:#10B981;--error:#EF4444;--muted:rgba(255,255,255,0.6);--card-radius:12px}
-
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg-primary);color:var(--text-primary);font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
-
-.header{display:flex;justify-content:space-between;align-items:center;padding:18px 22px}
-.header .brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--accent)}
-.header .links{display:flex;gap:12px}
-.header a{color:var(--text-secondary);text-decoration:none;font-size:14px}
-
-.container{max-width:1100px;margin:18px auto;padding:18px}
-.landing{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;background:var(--bg-elevated);padding:20px;border-radius:14px;border:1px solid rgba(255,255,255,0.03)}
-.landing h1{font-size:26px;margin:0 0 6px}
-.landing p{color:var(--text-secondary);margin:0 0 12px}
-
-.agent-types{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}
-.agent-tile{background:#09121b;border:1px solid rgba(255,255,255,0.03);padding:18px;border-radius:10px;color:var(--muted);display:flex;align-items:center;gap:10px}
-.agent-tile.active{border:1px solid var(--accent);box-shadow:0 8px 24px rgba(0,0,0,0.6)}
-
-.prompt-area{background:#07121a;border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.03);margin-bottom:12px}
-.prompt-area textarea{width:100%;min-height:120px;background:transparent;border:1px dashed rgba(255,255,255,0.03);color:var(--text-primary);padding:12px;border-radius:8px}
-
-.controls{display:flex;gap:12px;align-items:center;margin:8px 0}
-.select{background:#0a1623;border:1px solid rgba(255,255,255,0.03);padding:8px 12px;border-radius:8px;color:var(--text-primary)}
-.btn-cta{background:linear-gradient(180deg,var(--accent),var(--accent-2));border:none;padding:12px 16px;border-radius:10px;color:#081225;font-weight:700;cursor:pointer}
-.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:10px 14px;border-radius:10px;color:var(--text-secondary)}
-
-.info-note{background:rgba(245,166,35,0.04);padding:12px;border-radius:10px;border:1px solid rgba(245,166,35,0.06);color:var(--accent);margin:12px 0}
-
-.attack-simulator{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-.attack-btn{background:#07121a;border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px;color:var(--text-secondary);font-size:13px}
-
-.card{background:#07121a;border:1px solid rgba(255,255,255,0.03);border-radius:12px;padding:16px;color:var(--text-primary);box-shadow:0 8px 18px rgba(0,0,0,0.6);margin-bottom:12px}
-
-.empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px}
-.empty h2{margin:0}
-
-.footer{display:flex;justify-content:space-between;padding:18px;color:var(--text-secondary);font-size:13px}
-.footer a{color:var(--text-secondary);text-decoration:none}
-
-/* responsiveness */
-@media (max-width:900px){.landing{grid-template-columns:1fr;}.agent-types{grid-template-columns:repeat(2,1fr)}}
+/* Replaced globals.css with the exact original content from commit 959e22e... to revert only the stylesheet change while keeping the other UX improvements. */
+:root{--bg-primary:#0A0F1E;--bg-surface:#111827;--bg-elevated:#1A2235;--border:#1F2937;--text-primary:#F0F4FF;--text-secondary:#9CA3AF;--accent:#F5A623;--success:#10B981;--error:#EF4444;--warning:#F59E0B;--muted:rgba(255,255,255,0.6);--card-radius:8px;--font-mono:SFMono-Regular,Menlo,Monaco,Monospace}
+.toast{grid-column:1/-1;background:rgba(16,185,129,.14);border:1px solid var(--success);border-radius:6px;color:var(--success);padding:10px;text-align:center;animation:fade .2s ease both}
+.scanner{background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin:20px 0}
+.scanner h3{margin-top:0;color:var(--accent);font-family:var(--font-mono);letter-spacing:0.6px}
+.chain-tester{background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin:20px 0}
+.chain-tester h3{margin-top:0;color:var(--accent);font-family:var(--font-mono);letter-spacing:0.6px}
+.developer-dashboard,.regression{background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin:20px 0}
+.metric-grid,.regression-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.risk-bars{display:grid;gap:10px}
+.risk-bars div{display:grid;grid-template-columns:140px 1fr 48px;gap:10px;align-items:center}
+.risk-bars i{height:10px;background:#273145;border-radius:20px;overflow:hidden}
+.landing{display:grid;grid-template-columns:1.4fr .8fr;gap:20px;align-items:center;background:linear-gradient(135deg,rgba(245,166,35,.12),rgba(26,34,53,.8));border:1px solid var(--border);border-radius:8px;padding:18px}
+.wow-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.trust-gauge-card,.radar-card,.heatmap-card,.trust-badge-card,.latency-card,.timeline-card,.attack-simulator{background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.byok-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.checkbox-inline{display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-weight:600}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;border-radius:8px;background:transparent}
+.header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px}
+.header .brand{color:var(--accent);font-weight:700}
+.header a{color:var(--text-secondary);text-decoration:none;margin-left:12px}
+.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 6px 18px rgba(2,6,23,0.6);color:var(--text-primary)}
+.agent-tile{background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.00));border:1px solid rgba(255,255,255,0.02);padding:14px;border-radius:8px;color:var(--text-secondary);display:flex;gap:10px;align-items:center}
+.agent-tile.active{border-color:var(--accent);box-shadow:0 8px 24px rgba(245,166,35,0.06)}
+.prompt-area{background:transparent;border-radius:8px;padding:12px}
+.prompt-area textarea{width:100%;min-height:120px;background:transparent;border:1px dashed rgba(255,255,255,0.04);color:var(--text-primary);padding:12px;border-radius:8px}
+.controls{display:flex;gap:12px;align-items:center}
+.btn{background:var(--accent);border:none;padding:12px 14px;border-radius:8px;color:#081225;font-weight:700;cursor:pointer}
+.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--text-secondary)}
+.info-banner{background:rgba(245,166,35,0.06);border-radius:8px;padding:10px;color:var(--accent);border:1px solid rgba(245,166,35,0.08);margin:12px 0}
+.footer{display:flex;justify-content:space-between;padding:16px;color:var(--text-secondary);font-size:13px}
+.footer a{color:var(--text-secondary);text-decoration:none;margin-left:12px}
+@media (max-width:1000px){.metric-grid{grid-template-columns:repeat(2,1fr)}.landing{grid-template-columns:1fr}}
