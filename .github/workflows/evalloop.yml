@@ -55,7 +55,30 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: evalloop-report
-          path: evalloop/reports        run: mkdir -p reports && echo '{"schemaVersion":1,"label":"EvalLoop","message":"checked","color":"green"}' > reports/evalloop-badge.json
+          path: reports      
+      - name: Tests
+        run: npm test
+
+      - name: Coverage
+        run: npm run coverage
+
+      - name: Smoke tests
+        run: node tests/smoke.mjs
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Generate EvalLoop badge
+        run: |
+          mkdir -p reports
+          echo '{"schemaVersion":1,"label":"EvalLoop","message":"checked","color":"green"}' > reports/evalloop-badge.json
+
+      - name: Upload evaluation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: evalloop-report
+          path: evalloop/reports        
+          run: mkdir -p reports && echo '{"schemaVersion":1,"label":"EvalLoop","message":"checked","color":"green"}' > reports/evalloop-badge.json
       - name: Upload evaluation report
         uses: actions/upload-artifact@v4
         with:
