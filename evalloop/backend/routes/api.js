@@ -1,3 +1,7 @@
+// evalloop/backend/routes/api.js
+// Replace this file to relax prompt-injection detection (allow normal "You are ..." role prompts)
+// while still catching obvious malicious injection phrases.
+
 import express from 'express';
 import { askProvider } from '../aiClient.js';
 
@@ -64,7 +68,7 @@ function resolveProvider(body) {
   const wanted = (body.model || '').toString().trim().toLowerCase() || 'gpt-5.6';
   let provider = 'gpt-5.6';
   if (wanted === 'gemini' || wanted.startsWith('gemini-')) provider = 'gemini';
-  if (wanted === 'auto') provider = 'gpt-5.6'; // auto = default GPT-5.6, but caller can override
+  if (wanted === 'auto') provider = 'gpt-5.6';
   const apiKey = typeof body.apiKey === 'string' && body.apiKey.trim() ? body.apiKey.trim() : undefined;
   return { provider, apiKey };
 }
@@ -83,12 +87,72 @@ function requireArray(value, fieldName, minLength = 1) {
   return value;
 }
 
+/**
+ * Improved prompt injection detector:
+ * - Flags explicit malicious phrases (ignore previous, disregard all previous, jailbreak, exfiltrate, reveal system prompt, etc.)
+ * - Does NOT flag benign role/system statements like "You are a ..." when used as a short role definition.
+ */
+function detectPromptInjection(text) {
+  if (!text || typeof text !== 'string') return false;
+  const lowered = text.toLowerCase();
+
+  // Highly suspicious phrases that attempt to override or exfiltrate
+  const injectionPhrases = [
+    'ignore previous',
+    'ignore all previous',
+    'disregard previous',
+    'disregard all previous',
+    'forget previous',
+    'forget all previous',
+    'override my instructions',
+    'do not follow instructions',
+    'do anything',
+    'bypass',
+    'exfiltrat', // exfiltrate/exfiltration
+    'reveal the system',
+    'reveal system',
+    'system prompt leak',
+    'leak the system',
+    'reveal internal',
+    'internal instruction',
+    'jailbreak',
+    'sudo',
+    'run this command',
+    'execute this',
+    'open the system prompt',
+    'expose the system prompt',
+    'instruction override',
+    'disclose system',
+    'steal the prompt',
+    'extract the system',
+    'output the system prompt'
+  ];
+  for (const p of injectionPhrases) {
+    if (lowered.includes(p)) return true;
+  }
+
+  // Phrases like "system:" combined with "reveal" are suspicious
+  if ((lowered.includes('system:') || lowered.includes('system prompt')) && lowered.includes('reveal')) {
+    return true;
+  }
+
+  // Allow short role/system definitions like "You are a customer support assistant..." 
+  // Heuristic: if the text begins with "you are" and is concise (< 400 chars) and doesn't contain suspicious tokens, allow it.
+  if (/^\s*you are\s+/i.test(text)) {
+    const suspiciousInYouAre = ['ignore', 'disregard', 'reveal', 'exfiltrat', 'jailbreak', 'bypass', 'override'];
+    if (text.length < 400 && !suspiciousInYouAre.some((s) => lowered.includes(s))) {
+      return false;
+    }
+  }
+
+  // Otherwise be permissive by default (do not block). We only block well-known malicious patterns above.
+  return false;
+}
+
 function validateAndExtractJson(text, schemaHint) {
   if (!text || !String(text).trim()) throw httpError(502, 'Model returned an empty response.');
-  // Try direct parse
   try {
     const parsed = JSON.parse(text);
-    // Basic lightweight validation: ensure top-level is object and has expected hint fields if provided
     if (schemaHint === 'tests' && (!parsed.tests || !Array.isArray(parsed.tests))) {
       throw httpError(502, 'Model returned JSON but missing expected "tests" array.');
     }
@@ -97,7 +161,6 @@ function validateAndExtractJson(text, schemaHint) {
     }
     return parsed;
   } catch (err) {
-    // Not valid JSON; try to locate a JSON block BUT be conservative
     const match = String(text).match(/\{[\s\S]*\}/);
     if (!match) {
       throw httpError(502, 'Model returned invalid JSON.');
@@ -119,13 +182,11 @@ async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
   if (!raw || !String(raw).trim()) {
     throw httpError(502, `${usedProvider} returned an empty response.`);
   }
-  // The system routes often expect different top-level shapes — pass hint based on the system name where possible
   const hint = system && system.toLowerCase().includes('generate exactly 20') ? 'tests' : system && system.toLowerCase().includes('results') ? 'results' : undefined;
   return validateAndExtractJson(raw, hint);
 }
 
 function normalizeTestResult(result, fallbackId) {
-  // Defensive normalization: ensure types and values
   const testId = typeof result.testId === 'number' ? Number(result.testId) : Number.isFinite(Number(fallbackId)) ? Number(fallbackId) : 0;
   const passed = result?.passed === true || result?.passed === 'true' || result?.passed === 1;
   const failureType = (!passed && failureTypes.includes(result.failureType)) ? result.failureType : null;
@@ -140,16 +201,7 @@ function normalizeTestResult(result, fallbackId) {
   };
 }
 
-// Basic prompt injection detection
-function detectPromptInjection(text) {
-  if (!text || typeof text !== 'string') return false;
-  // look for suspicious tokens that try to override system instructions
-  const lowered = text.toLowerCase();
-  const suspicious = ['you are', 'ignore previous', 'disregard', 'system:', 'internal instruction', 'do not follow'];
-  return suspicious.some((s) => lowered.includes(s));
-}
-
-// Cache access helpers (with TTL)
+// Cache helpers (with TTL)
 function getCached(key) {
   const entry = evaluationCache.get(key);
   if (!entry) return null;
@@ -241,7 +293,7 @@ router.post('/run-tests-batch', async (req, res, next) => {
     const tests = requireArray(req.body.tests, 'tests', 1);
 
     if (detectPromptInjection(agentPrompt)) {
-      throw httpError(400, 'agentPrompt contains disallowed patterns (prompt injection).');
+      throw httpError(400, 'agentPrompt contains disallowed patterns (possible prompt injection).');
     }
 
     const requestPayload = { agentPrompt, tests, agentType };
