@@ -3,36 +3,62 @@ export default function LandingPage() {
     <section className="landing">
       <div>
         <p className="eyebrow">AI Developer Tools Hackathon Edition</p>
+
         <div className="hero-metrics">
-  <div className="metric-card">
-    <strong>1,000+</strong>
-    <span>🤖 Agents Evaluated</span>
-  </div>
+          <div className="metric-card">
+            <strong>20+</strong>
+            <span>🤖 Evaluation Scenarios</span>
+          </div>
 
-  <div className="metric-card">
-    <strong>+85%</strong>
-    <span>📈 Avg Reliability Gain</span>
-  </div>
+          <div className="metric-card">
+            <strong>90%</strong>
+            <span>📈 Reliability After Fixes</span>
+          </div>
 
-  <div className="metric-card">
-    <strong>5,000+</strong>
-    <span>🛡️ Security Tests</span>
-  </div>
+          <div className="metric-card">
+            <strong>20</strong>
+            <span>🛡️ Built-in Security Tests</span>
+          </div>
 
-  <div className="metric-card">
-    <strong>4</strong>
-    <span>⭐ AI Providers Supported</span>
-  </div>
-</div>
+          <div className="metric-card">
+            <strong>GPT-5.6 + Gemini</strong>
+            <span>⚡ Multi-Model Support</span>
+          </div>
+        </div>
+
         <h1>EvalLoop — Trust Your AI Agent Before Production</h1>
-        <p>Automated evaluation, prompt hardening, benchmarking, security analysis, and trust scoring for AI agents.</p>
+
+        <p>
+          Automatically evaluate AI agents for reliability, prompt security,
+          jailbreak resistance, hallucinations, tool misuse, and prompt
+          quality before deployment.
+        </p>
+
         <div className="landing-actions">
-          <a href="https://github.com/Shital24650/EvalLoop" target="_blank" rel="noreferrer">GitHub</a>
-          <a href="https://agenttrust-benchmark.ai.studio/" target="_blank" rel="noreferrer">AgentTrust Demo</a>
+          <a
+            href="https://github.com/Shital24650/EvalLoop"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+
+          <a
+            href="https://agenttrust-benchmark.ai.studio/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            AgentTrust Demo
+          </a>
         </div>
       </div>
+
       <div className="pipeline">
-        <span>Generate</span><span>Batch Evaluate</span><span>Rewrite</span><span>Security Scan</span><span>Export</span>
+        <span>Generate</span>
+        <span>Batch Evaluate</span>
+        <span>Rewrite</span>
+        <span>Security Scan</span>
+        <span>Export</span>
       </div>
     </section>
   );
