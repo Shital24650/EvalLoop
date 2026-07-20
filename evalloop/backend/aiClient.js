@@ -123,11 +123,12 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
 
   // First try: use response_format (preferred for structured JSON)
   try {
-    const response = await client.chat.completions.create({
+     const response = await client.chat.completions.create({
   model,
-  max_tokens: effectiveMaxTokens,
-  temperature: 0,
   messages,
+  temperature: 0,
+  max_tokens: effectiveMaxTokens,
+  response_format: { type: "json_object" },
 });
     return response.choices?.[0]?.message?.content;
   } catch (err) {
