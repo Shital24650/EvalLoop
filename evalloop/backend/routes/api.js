@@ -160,19 +160,34 @@ function validateAndExtractJson(text, schemaHint) {
       throw httpError(502, 'Model returned JSON but missing expected "results" array.');
     }
     return parsed;
-  } catch (err) {
-    const match = String(text).match(/\{[\s\S]*\}/);
+    } catch (err) {
+    text = String(text)
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const match = text.match(/\{[\s\S]*\}/);
     if (!match) {
-      throw httpError(502, 'Model returned invalid JSON.');
+      throw httpError(502, "Model returned invalid JSON.");
     }
+
     try {
       const parsed = JSON.parse(match[0]);
-      if (schemaHint === 'tests' && (!parsed.tests || !Array.isArray(parsed.tests))) {
+
+      if (schemaHint === "tests" && (!parsed.tests || !Array.isArray(parsed.tests))) {
         throw httpError(502, 'Model returned JSON but missing expected "tests" array.');
       }
+
+      if (schemaHint === "results" && (!parsed.results || !Array.isArray(parsed.results))) {
+        throw httpError(502, 'Model returned JSON but missing expected "results" array.');
+      }
+
       return parsed;
-    } catch (err2) {
-      throw httpError(502, 'Model returned malformed JSON.');
+    } catch {
+      console.error("Raw model response:", text);
+      throw httpError(502, "Model returned malformed JSON.");
+    }
+  }
     }
   }
 }
