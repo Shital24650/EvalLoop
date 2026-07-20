@@ -119,7 +119,7 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
     { role: 'user', content: ensurePromptSafe(user) },
   ];
 
-  const effectiveMaxTokens = Math.max(MIN_MAX_TOKENS, Math.min(DEFAULT_MAX_TOKENS, maxTokens || DEFAULT_MAX_TOKENS));
+  const effectiveMaxTokens = Math.max(MIN_MAX_TOKENS, maxTokens || DEFAULT_MAX_TOKENS);
 
   // First try: use response_format (preferred for structured JSON)
   try {
