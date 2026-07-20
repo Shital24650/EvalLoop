@@ -300,11 +300,12 @@ export async function askProvider({ provider = 'gpt-5.6', apiKey, system, user, 
           return { raw, provider: 'gemini', usedFallbackKeyIndex: i };
         } else {
           // Use backoff around OpenAI/OpenRouter calls (these can produce transient errors)
+          const isOfficialOpenAiKey = key && typeof key === 'string' && key.startsWith('sk-');
           const raw = await retryWithBackoff(
   () =>
     callOpenAiCompatible({
       apiKey: key,
-      baseURL: OPENROUTER_BASE_URL,
+      baseURL: isOfficialOpenAiKey ? undefined : OPENROUTER_BASE_URL,
       model: OPENAI_MODEL,
       system,
       user,
@@ -321,15 +322,15 @@ return {
   provider: 'gpt-5.6',
   usedFallbackKeyIndex: i,
 };
-           }
-             }catch (error) {
+         }
+       }catch (error) {
         lastError = error;
         // If this error suggests rotating keys (auth/429/402) try next key; otherwise fail if last.
         if (!isRotatable(error) || i === keyPool.length - 1) {
           const status = error?.status || error?.response?.status;
           let friendly;
           if (status === 402) {
-            friendly = `${isGemini ? 'Gemini' : 'GPT-5.6'} key ${i + 1}/${keyPool.length} is out of credits. Add credits at openrouter.ai/settings/credits, add another key to the pool, or lower OPENROUTER_MAX_TOKENS.`;
+            friendly = `${isGemini ? 'Gemini' : 'GPT-5.6'} key ${i + 1}/${keyPool.length} is out of credits. Add credits at openrouter.ai/settings/credits, add another key to the pool, or lower O[...]`;
           } else {
             friendly = `${isGemini ? 'Gemini' : 'GPT-5.6'} key ${i + 1}/${keyPool.length} failed: ${error.message}`;
           }
