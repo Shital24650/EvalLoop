@@ -15,8 +15,8 @@
   "dotenv": "latest",
   "express": "latest",
   "openai": "latest",
-  "express-rate-limit": "latest"
-}
+  "express-rate-limit":"latest"
+},
   "devDependencies": {},
   "bin": {
     "evalloop": "./cli/evalloop.js"
