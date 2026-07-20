@@ -19,6 +19,8 @@ jobs:
         run: npm install
       - name: Install frontend dependencies
         run: npm --prefix frontend install
+        - name: Install backend dependencies
+  run: npm --prefix backend install
       - name: Static checks
         run: npm run check
       - name: Lint
