@@ -124,11 +124,11 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
   // First try: use response_format (preferred for structured JSON)
   try {
     const response = await client.chat.completions.create({
-      model,
-      max_tokens: effectiveMaxTokens,
-      response_format: { type: 'json_object' }, // OpenRouter supports this; OpenAI SDK may not.
-      messages,
-    });
+  model,
+  max_tokens: effectiveMaxTokens,
+  temperature: 0,
+  messages,
+});
     return response.choices?.[0]?.message?.content;
   } catch (err) {
     const status = err?.status || err?.response?.status;
@@ -160,11 +160,11 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
         const client2 = new OpenAI({ apiKey, baseURL, timeout: REQUEST_TIMEOUT_MS });
         try {
           const retryResponse = await client2.chat.completions.create({
-            model,
-            max_tokens: affordable,
-            response_format: { type: 'json_object' },
-            messages,
-          });
+  model,
+  max_tokens: affordable,
+  temperature: 0,
+  messages,
+});
           return retryResponse.choices?.[0]?.message?.content;
         } catch (err3) {
           // continue to throw original
