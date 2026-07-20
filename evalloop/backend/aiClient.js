@@ -15,7 +15,7 @@ const OPENAI_KEYS = parseKeyList(process.env.OPENAI_API_KEYS || process.env.OPEN
 const GEMINI_KEYS = parseKeyList(process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY);
 
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'openai/gpt-5.6';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-terra';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 // A small ordered fallback list for Gemini models to try if one is not found.
@@ -142,10 +142,12 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
           { role: 'user', content: ensurePromptSafe(user) + '\n\nReturn ONLY valid JSON (no prose).'},
         ];
         const response = await client.chat.completions.create({
-          model,
-          max_tokens: effectiveMaxTokens,
-          messages: fallbackMessages,
-        });
+  model,
+  max_tokens: effectiveMaxTokens,
+  temperature: 0,
+  response_format: { type: 'json_object' },  // ← ADD THIS BACK
+  messages,
+});
         return response.choices?.[0]?.message?.content;
       } catch (err2) {
         // bubble up the original or the new error as appropriate
@@ -298,28 +300,25 @@ export async function askProvider({ provider = 'gpt-5.6', apiKey, system, user, 
         } else {
           // Use backoff around OpenAI/OpenRouter calls (these can produce transient errors)
           const raw = await retryWithBackoff(
-  () => callOpenAiCompatible({
-    apiKey: key,
-    baseURL: OPENROUTER_BASE_URL,
-    model: OPENAI_MODEL,
-    system,
-    user,
-    maxTokens
-  }),
+  () =>
+    callOpenAiCompatible({
+      apiKey: key,
+      baseURL: OPENROUTER_BASE_URL,
+      model: OPENAI_MODEL,
+      system,
+      user,
+      maxTokens,
+    }),
   (err) => {
     const status = err?.status || err?.response?.status;
     return isTransientStatus(status) || isRotatable(err);
   }
 );
 
-console.log("========== RAW MODEL RESPONSE ==========");
-console.log(raw);
-console.log("========================================");
-
 return {
   raw,
-  provider: "gpt-5.6",
-  usedFallbackKeyIndex: i
+  provider: 'gpt-5.6',
+  usedFallbackKeyIndex: i,
 };
       } catch (error) {
         lastError = error;
