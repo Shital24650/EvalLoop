@@ -24,7 +24,7 @@ const TEST_COUNT = 20; // demo/fallback batch size only
 function expectedTestCountFor(model) {
   // Groq is fast/cheap, so it gets a bigger adversarial batch. GPT-5.6 runs on
   // metered credits, so keep its batch small to conserve usage.
-  return model === 'groq' ? 20 : 5;
+  return model === 'groq' ? 10 : 5;
 }
 
 const failureLabels = {
