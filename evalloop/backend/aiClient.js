@@ -22,8 +22,9 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_FALLBACK_MODELS = [
   GEMINI_MODEL,
   'gemini-2.5-pro',
-  'gemini-2.1',
-  'gemini-1.0',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+
 ];
 
 const REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 120000);
