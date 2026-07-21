@@ -194,14 +194,16 @@ async function callGeminiSingle({ apiKey, model, system, user }) {
       signal: controller.signal,
     });
     if (!res.ok) {
-      const err = new Error(`Gemini request failed (${res.status})`);
-      err.status = res.status;
-      // Attach response body where safe for server logs (masked externally)
-      try {
-        err.body = await res.text();
-      } catch (readErr) { /* ignore */ }
-      throw err;
-    }
+  const body = await res.text();
+
+  console.log("Gemini URL:", url);
+  console.log("Gemini Error:", res.status, body);
+
+  const err = new Error(body);
+  err.status = res.status;
+  err.body = body;
+  throw err;
+}
     const data = await res.json();
     // Check for blocked/empty candidates
     const candidate = data?.candidates?.[0];
