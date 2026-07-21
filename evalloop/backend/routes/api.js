@@ -248,6 +248,7 @@ function validateAndExtractJson(text, schemaHint) {
   }
 
   // If we reach here, we couldn't recover valid JSON
+  console.log(s);
   throw httpError(502, 'Model returned malformed JSON.');
 }
 
