@@ -619,7 +619,31 @@ Return ONLY valid JSON:
 }`;
 
     const payload = await askJson(system, JSON.stringify({ originalPrompt, failures }), { ...resolveProvider(req.body), maxTokens: 2000 });
-    return res.json({ improvedPrompt: payload.improvedPrompt || originalPrompt, changes: Array.isArray(payload.changes) ? payload.changes : [], warnings });
+
+    // Detect a silent no-op rewrite: the model returned valid JSON, but either
+    // omitted improvedPrompt entirely or returned something identical to the
+    // input. Previously this fell back to `originalPrompt` with a 200 OK and no
+    // signal anywhere — which meant an eval loop calling this endpoint on every
+    // iteration would keep re-testing the SAME prompt indefinitely, producing
+    // identical failures every iteration with no error to explain why.
+    const rewrittenText = typeof payload.improvedPrompt === 'string' ? payload.improvedPrompt.trim() : '';
+    const rewriteApplied = Boolean(rewrittenText) && rewrittenText !== originalPrompt.trim();
+    if (!rewriteApplied) {
+      warnings.push({
+        type: 'rewrite_noop',
+        severity: 'medium',
+        message: 'Prompt rewrite did not produce a changed prompt',
+        evidence: rewrittenText ? 'Model returned an improvedPrompt identical to the original.' : 'Model response was missing or had an empty improvedPrompt.',
+        suggestedFix: 'Treat this iteration as unchanged; consider retrying the rewrite or reviewing the failures passed to it.',
+      });
+    }
+
+    return res.json({
+      improvedPrompt: rewriteApplied ? payload.improvedPrompt : originalPrompt,
+      changes: Array.isArray(payload.changes) ? payload.changes : [],
+      warnings,
+      rewriteApplied,
+    });
   } catch (error) {
     next(error);
   }
