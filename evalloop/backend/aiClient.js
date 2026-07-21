@@ -27,7 +27,7 @@ const GEMINI_FALLBACK_MODELS = [
 ];
 
 const REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 120000);
-const DEFAULT_MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 1500);
+const DEFAULT_MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2500);
 const MIN_MAX_TOKENS = Number(process.env.OPENROUTER_MIN_MAX_TOKENS || 400);
 
 const MAX_RETRY_ATTEMPTS = Number(process.env.AI_CLIENT_MAX_RETRIES || 4);
