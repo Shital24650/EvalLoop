@@ -139,7 +139,7 @@ function friendlyErrorMessage(raw) {
   const lower = raw.toLowerCase();
 
   if (lower.includes('out of credits') || lower.includes('is out of credits')) {
-    return 'GPT-5.6 is temporarily unavailable. Please add credits or switch to Gemini.';
+    return 'GPT-5.6 is temporarily unavailable. Please add credits or switch to Groq.';
   }
   if (lower.includes('quota') || lower.includes('quota exceeded') || lower.includes('usage limits')) {
     return "GPT-5.6 request couldn't be completed because usage limits were reached.";
