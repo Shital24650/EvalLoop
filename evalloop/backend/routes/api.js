@@ -223,11 +223,28 @@ function applyWarningPenalties(metrics, warnings = []) {
   return metrics;
 }
 
+// Normalizes invisible/look-alike Unicode characters that are indistinguishable from
+// normal whitespace in any browser, log viewer, or copy-paste, but which JSON.parse
+// treats as invalid outside a string (non-breaking space, various Unicode space
+// separators, zero-width characters, BOM, line/paragraph separators). This is what
+// silently produces "the JSON looks perfectly valid but fails to parse" — the
+// offending character is present in the real bytes but disappears the moment a human
+// reads or copies the text anywhere. Runs BEFORE anything else, on the full string.
+function normalizeInvisibleUnicode(input) {
+  return String(input)
+    .replace(/\uFEFF/g, '')                                   // BOM
+    .replace(/[\u200B\u200C\u200D\u2060]/g, '')                // zero-width chars
+    .replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, ' ') // NBSP + Unicode space separators -> normal space
+    .replace(/[\u2028\u2029]/g, '\n');                         // line/paragraph separators -> normal newline
+}
+
 function validateAndExtractJson(text, schemaHint) {
   if (!text || !String(text).trim()) throw httpError(502, 'Model returned an empty response.');
 
-  // Normalize to string
-  const raw = String(text);
+  // Normalize to string, and strip invisible Unicode look-alikes first — otherwise
+  // every downstream step (trim, fence-matching, JSON.parse itself) can silently
+  // choke on a character no one can see.
+  const raw = normalizeInvisibleUnicode(text);
 
   // 1) Trim surrounding whitespace
   let s = raw.trim();
