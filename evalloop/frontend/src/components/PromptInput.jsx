@@ -67,6 +67,12 @@ export default function PromptInput({
         </label>
       </div>
 
+      <p className="hint model-test-count-hint">
+        {model === 'groq'
+          ? 'Running the full 20 test cases with Groq.'
+          : 'Running top 5 test cases with GPT-5.6 to conserve credits — switch to Groq for the full 20-test suite.'}
+      </p>
+
       <div className="controls byok-row">
         <label className="checkbox-inline">
           <input
