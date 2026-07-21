@@ -341,11 +341,27 @@ function App() {
         };
 
         setResults(finalSession);
-        setHistory((currentHistory) => [
-          { name: `${overrideAgentType} Bot v${currentHistory.length + 1}`, score: after, when: 'just now', session: finalSession },
-          ...currentHistory,
-        ].slice(0, 5));
+        setHistory((currentHistory) => {
+  const previousSession = currentHistory[0]?.session;
 
+  finalSession.regression = {
+    oldScore: previousSession?.metrics?.reliabilityScore ?? before,
+    newScore: finalSession.metrics.reliabilityScore,
+    improvement:
+      finalSession.metrics.reliabilityScore -
+      (previousSession?.metrics?.reliabilityScore ?? before),
+  };
+
+  return [
+    {
+      name: `${overrideAgentType} Bot v${currentHistory.length + 1}`,
+      score: after,
+      when: 'just now',
+      session: finalSession,
+    },
+    ...currentHistory,
+  ].slice(0, 5);
+});
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 4500);
       } catch (runError) {
