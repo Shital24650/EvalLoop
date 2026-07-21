@@ -62,7 +62,7 @@ export default function PromptInput({
           Model
           <select value={model} onChange={(event) => setModel(event.target.value)}>
             <option value="gpt-5.6">GPT-5.6</option>
-            <option value="gemini">Gemini</option>
+            <option value="groq">Groq</option>
           </select>
         </label>
       </div>
@@ -80,7 +80,7 @@ export default function PromptInput({
           <input
             type="password"
             className="byok-input"
-            placeholder={model === 'gemini' ? 'Your Gemini API key' : 'Your OpenAI/OpenRouter API key'}
+            placeholder={model === 'groq' ? 'Your Groq API key' : 'Your OpenAI/OpenRouter API key'}
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             autoComplete="off"
