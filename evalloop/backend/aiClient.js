@@ -180,10 +180,17 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
 async function callGeminiSingle({ apiKey, model, system, user }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const body = {
-    systemInstruction: { parts: [{ text: ensurePromptSafe(system) }] },
-    contents: [{ role: 'user', parts: [{ text: ensurePromptSafe(user) }] }],
-    generationConfig: { responseMimeType: 'application/json' },
-  };
+  contents: [
+    {
+      role: "user",
+      parts: [
+        {
+          text: `${ensurePromptSafe(system)}\n\n${ensurePromptSafe(user)}`
+        }
+      ]
+    }
+  ]
+};
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
