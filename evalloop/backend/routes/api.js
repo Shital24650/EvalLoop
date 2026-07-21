@@ -285,13 +285,19 @@ function validateAndExtractJson(text, schemaHint) {
     // continue to extraction strategies below
   }
 
-  // 6) Extract all {...} blocks and try each (conservative approach)
-  const objectMatches = s.match(/\{[\s\S]*\}/g) || [];
-  for (const candidate of objectMatches) {
+  // 6) Extract candidate top-level {...} objects using BALANCED brace scanning
+  //    (not a greedy regex). A greedy regex like /\{[\s\S]*\}/ matches from the
+  //    first '{' to the LAST '}' anywhere in the string — if the model appends
+  //    ANY trailing content after valid JSON that happens to contain its own '}'
+  //    (a stray note, a leftover partial retry, anything), the greedy match
+  //    overshoots into that garbage and parsing fails even though the actual
+  //    JSON object was fine. Balanced scanning stops at the correct matching
+  //    brace no matter what follows it.
+  const candidates = extractBalancedJsonCandidates(s);
+  for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate);
       if (schemaHint === 'tests' && (!parsed.tests || !Array.isArray(parsed.tests))) {
-        // not the expected shape, continue searching
         continue;
       }
       if (schemaHint === 'results' && (!parsed.results || !Array.isArray(parsed.results))) {
@@ -303,13 +309,17 @@ function validateAndExtractJson(text, schemaHint) {
     }
   }
 
-  // 7) Last-resort: try to peel off wrapper lines like "Result:" and attempt again
-  const simpleCandidateMatch = raw.match(/({[\s\S]*})/);
-  if (simpleCandidateMatch) {
+  // 7) Last-resort: same balanced scan against the untouched raw text, in case
+  //    normalization/fence-stripping above moved the boundaries unexpectedly.
+  const rawCandidates = extractBalancedJsonCandidates(raw);
+  for (const candidate of rawCandidates) {
     try {
-      const parsed = JSON.parse(simpleCandidateMatch[1]);
+      const parsed = JSON.parse(candidate);
       if (schemaHint === 'tests' && (!parsed.tests || !Array.isArray(parsed.tests))) {
-        throw httpError(502, 'Model returned JSON but missing expected "tests" array.');
+        continue;
+      }
+      if (schemaHint === 'results' && (!parsed.results || !Array.isArray(parsed.results))) {
+        continue;
       }
       return parsed;
     } catch (e) {
@@ -318,12 +328,56 @@ function validateAndExtractJson(text, schemaHint) {
   }
 
   // If we reach here, we couldn't recover valid JSON.
-  // Log an ESCAPED single-line version so real newlines/control chars in the model's
-  // output don't get silently normalized by the log viewer — that's what made the
-  // previous failures look "valid" when copy-pasted even though they weren't.
-  const escapedForLog = String(raw).slice(0, 2000).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
-  console.error('[validateAndExtractJson] unrecoverable, escaped raw (first 2000 chars):', escapedForLog);
-  throw httpError(502, `Model returned malformed JSON.\n\nRaw (escaped):\n${escapedForLog}`);
+  // Log an ESCAPED version so real newlines/control chars in the model's output
+  // don't get silently normalized by the log viewer, AND log the true total
+  // length plus a tail sample — a fixed 2000-char head-only cutoff can hide the
+  // actual problem if it occurs later in the response.
+  const escape = (str) => str.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+  const rawStr = String(raw);
+  const headForLog = escape(rawStr.slice(0, 2000));
+  const tailForLog = rawStr.length > 2000 ? escape(rawStr.slice(-500)) : '(same as head, response under 2000 chars)';
+  console.error('[validateAndExtractJson] unrecoverable. Total length:', rawStr.length, 'Head (first 2000, escaped):', headForLog, 'Tail (last 500, escaped):', tailForLog);
+  throw httpError(502, `Model returned malformed JSON.\n\nTotal length: ${rawStr.length}\nHead (escaped):\n${headForLog}\nTail (escaped):\n${tailForLog}`);
+}
+
+// Extracts every top-level {...} substring from input using proper balanced-brace
+// depth counting that respects JSON string literals and escapes (so a '{' or '}'
+// typed inside a string value doesn't throw off the depth count). Unlike a greedy
+// regex, this always stops at the CORRECT matching closing brace for each object
+// it finds, regardless of what content follows in the rest of the string.
+function extractBalancedJsonCandidates(input) {
+  const str = String(input);
+  const candidates = [];
+  let i = 0;
+  while (i < str.length) {
+    if (str[i] !== '{') { i += 1; continue; }
+    const start = i;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let j = i;
+    for (; j < str.length; j += 1) {
+      const ch = str[j];
+      if (inString) {
+        if (escaped) { escaped = false; continue; }
+        if (ch === '\\') { escaped = true; continue; }
+        if (ch === '"') { inString = false; continue; }
+        continue;
+      }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === '{') { depth += 1; continue; }
+      if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          candidates.push(str.slice(start, j + 1));
+          break;
+        }
+      }
+    }
+    // Move past this candidate (whether it closed cleanly or not) and keep scanning
+    i = j > i ? j + 1 : i + 1;
+  }
+  return candidates;
 }
 
 async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
