@@ -130,6 +130,9 @@ EvalLoop turns "it feels reliable" into a measurable, reproducible, CI-enforceab
 
 ## Architecture
 
+<p align="center">
+  <img src="assets/architecture.png" width="100%" alt="Architecture">
+</p>
 
 EvalLoop is organized into six layers:
 
