@@ -249,7 +249,7 @@ function validateAndExtractJson(text, schemaHint) {
 
   // If we reach here, we couldn't recover valid JSON
   console.log(s);
-  throw httpError(502, 'Model returned malformed JSON.');
+  throw httpError(502, `Model returned malformed JSON.\n\nRaw:\n${String(raw).slice(0, 2000)}`);
 }
 
 async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
