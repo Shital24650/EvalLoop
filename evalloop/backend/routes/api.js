@@ -52,7 +52,7 @@ function buildEvaluationMetrics(results = [], startedAt = Date.now(), inputToken
     estimatedTokenUsage,
     estimatedApiCostUsd: Number(((estimatedTokenUsage.total / 1000) * 0.015).toFixed(4)),
     apiRequestCount: 1,
-    model: provider === 'gemini' ? 'gemini' : 'gpt-5.6',
+    model: provider === 'groq' ? 'groq' : 'gpt-5.6',
     generatedAt: new Date().toISOString(),
   };
 }
@@ -64,10 +64,10 @@ function httpError(status, message) {
 }
 
 function resolveProvider(body) {
-  // Accept explicit provider names: 'gemini', 'gpt-5.6', or 'auto'
+  // Accept explicit provider names: 'groq', 'gpt-5.6', or 'auto'
   const wanted = (body.model || '').toString().trim().toLowerCase() || 'gpt-5.6';
   let provider = 'gpt-5.6';
-  if (wanted === 'gemini' || wanted.startsWith('gemini-')) provider = 'gemini';
+  if (wanted === 'groq' || wanted.startsWith('groq-') || wanted.startsWith('llama')) provider = 'groq';
   if (wanted === 'auto') provider = 'gpt-5.6';
   const apiKey = typeof body.apiKey === 'string' && body.apiKey.trim() ? body.apiKey.trim() : undefined;
   return { provider, apiKey };
