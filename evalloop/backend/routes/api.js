@@ -63,11 +63,14 @@ function httpError(status, message) {
   return err;
 }
 
-// Escapes stray control characters (raw newlines/tabs/etc.) that sometimes leak
-// into LLM-generated JSON string values (e.g. `"evidence": "line one<real newline>line two"`),
-// which otherwise makes JSON.parse throw even though the JSON is "obviously" well-formed
-// when viewed in a log/browser. Only touches characters INSIDE quoted string literals —
-// whitespace/newlines used for pretty-printing OUTSIDE strings are left untouched.
+// Fixes two common ways LLM output breaks JSON.parse even though it "looks" well-formed:
+//  1) stray control characters (raw newlines/tabs) left un-escaped inside a string value
+//  2) stray backslashes inside a string value that aren't a valid JSON escape (e.g. a
+//     Windows path "C:\Users\data" or LaTeX like "\alpha" written by the model as-is)
+// Only touches characters INSIDE quoted string literals — whitespace/newlines used for
+// pretty-printing OUTSIDE strings are left untouched, so valid JSON is never corrupted.
+const VALID_JSON_ESCAPES = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);
+
 function sanitizeJsonControlChars(input) {
   let out = '';
   let inString = false;
@@ -76,7 +79,13 @@ function sanitizeJsonControlChars(input) {
     const ch = input[i];
     if (inString) {
       if (escaped) {
-        out += ch;
+        if (!VALID_JSON_ESCAPES.has(ch)) {
+          // the preceding backslash was a stray literal one, not an intended escape —
+          // double it up so it becomes a valid escaped backslash, then keep this char as-is
+          out = out.slice(0, -1) + '\\\\' + ch;
+        } else {
+          out += ch;
+        }
         escaped = false;
         continue;
       }
@@ -291,9 +300,13 @@ function validateAndExtractJson(text, schemaHint) {
     }
   }
 
-  // If we reach here, we couldn't recover valid JSON
-  console.log(s);
-  throw httpError(502, `Model returned malformed JSON.\n\nRaw:\n${String(raw).slice(0, 2000)}`);
+  // If we reach here, we couldn't recover valid JSON.
+  // Log an ESCAPED single-line version so real newlines/control chars in the model's
+  // output don't get silently normalized by the log viewer — that's what made the
+  // previous failures look "valid" when copy-pasted even though they weren't.
+  const escapedForLog = String(raw).slice(0, 2000).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+  console.error('[validateAndExtractJson] unrecoverable, escaped raw (first 2000 chars):', escapedForLog);
+  throw httpError(502, `Model returned malformed JSON.\n\nRaw (escaped):\n${escapedForLog}`);
 }
 
 async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
@@ -311,15 +324,31 @@ async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
   try {
     return validateAndExtractJson(raw, hint);
   } catch (err) {
-    // Server-side diagnostic (truncated and newline-escaped). Do NOT log API keys.
     try {
       const snippet = (typeof raw === 'string' ? raw : String(raw)).slice(0, 2000).replace(/\n/g, '\\n');
-      console.error('[askJson] Failed to parse model output. Provider:', usedProvider, 'Truncated raw output (escaped):', snippet);
+      console.error('[askJson] First attempt failed to parse. Provider:', usedProvider, 'Truncated raw output (escaped):', snippet);
     } catch (logErr) {
       console.error('[askJson] Failed to parse model output and failed to log raw output.');
     }
-    // Re-throw original error to be handled by middleware and returned to client
-    throw err;
+
+    // SAFETY NET: one automatic retry with a fresh model call before giving up.
+    // Malformed JSON is usually a one-off sampling glitch, not a deterministic bug —
+    // a second attempt succeeds the vast majority of the time.
+    try {
+      console.warn('[askJson] Retrying once after malformed JSON...');
+      const retry = await askProvider({ provider, apiKey, system, user, maxTokens });
+      if (!retry.raw || !String(retry.raw).trim()) {
+        throw httpError(502, `${retry.provider} returned an empty response on retry.`);
+      }
+      return validateAndExtractJson(retry.raw, hint);
+    } catch (retryErr) {
+      try {
+        const retrySnippet = String(retryErr?.message || retryErr).slice(0, 500);
+        console.error('[askJson] Retry also failed:', retrySnippet);
+      } catch (logErr2) { /* ignore */ }
+      // Re-throw the ORIGINAL error so the client message/status stays consistent
+      throw err;
+    }
   }
 }
 
