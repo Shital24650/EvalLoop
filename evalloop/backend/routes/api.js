@@ -55,7 +55,7 @@ apiRequestCount: 1,
 model: provider === 'groq' ? 'groq' : 'gpt-5.6',
 generatedAt: new Date().toISOString(),
 };
-}rewrite
+    }
 
 function httpError(status, message) {
   const err = new Error(message);
