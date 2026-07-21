@@ -38,41 +38,24 @@ function buildEvaluationMetrics(results = [], startedAt = Date.now(), inputToken
   const outputTokens = estimateTokens(results);
   const estimatedTokenUsage = { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens };
 
-  const hallucinationProbability = Math.round((typeCount('hallucination') / total) * 100);
-const promptInjectionProbability = Math.round((typeCount('prompt_misread') / total) * 100);
-const toolMisuseProbability = Math.round((typeCount('bad_tool_call') / total) * 100);
-const contextOverflowProbability = Math.round((typeCount('context_overflow') / total) * 100);
-
-const passRate = ((total - failed.length) / total) * 100;
-
-const agentTrustScore = Math.max(
-  0,
-  Math.round(
-    passRate
-    - (hallucinationProbability * 0.20)
-    - (promptInjectionProbability * 0.15)
-    - (toolMisuseProbability * 0.10)
-    - (contextOverflowProbability * 0.10)
-  )
-);
-
-return {
-  agentTrustScore,
-  reliabilityScore,
-  confidenceScore: Math.max(50, Math.min(99, 92 - failed.length * 2)),
-  riskScore,
-  hallucinationProbability,
-  promptInjectionProbability,
-  toolMisuseProbability,
-  contextOverflowProbability,
-  severityDistribution,
-  latencyMs: Date.now() - startedAt,
-  estimatedTokenUsage,
-  estimatedApiCostUsd: Number(((estimatedTokenUsage.total / 1000) * 0.015).toFixed(4)),
-  apiRequestCount: 1,
-  model: provider === 'groq' ? 'groq' : 'gpt-5.6',
-  generatedAt: new Date().toISOString(),
+  return {
+agentTrustScore: Math.max(0, Math.round((reliabilityScore * 0.55) + ((100 - riskScore) * 0.35) + 10)),
+reliabilityScore,
+confidenceScore: Math.max(50, Math.min(99, 92 - failed.length * 2)),
+riskScore,
+hallucinationProbability: Math.round((typeCount('hallucination') / total) * 100),
+promptInjectionProbability: Math.round((typeCount('prompt_misread') / total) * 80),
+toolMisuseProbability: Math.round((typeCount('bad_tool_call') / total) * 100),
+contextOverflowProbability: Math.round((typeCount('context_overflow') / total) * 100),
+severityDistribution,
+latencyMs: Date.now() - startedAt,
+estimatedTokenUsage,
+estimatedApiCostUsd: Number(((estimatedTokenUsage.total / 1000) * 0.015).toFixed(4)),
+apiRequestCount: 1,
+model: provider === 'groq' ? 'groq' : 'gpt-5.6',
+generatedAt: new Date().toISOString(),
 };
+}rewrite
 
 function httpError(status, message) {
   const err = new Error(message);
