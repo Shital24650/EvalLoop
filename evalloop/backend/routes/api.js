@@ -63,6 +63,47 @@ function httpError(status, message) {
   return err;
 }
 
+// Escapes stray control characters (raw newlines/tabs/etc.) that sometimes leak
+// into LLM-generated JSON string values (e.g. `"evidence": "line one<real newline>line two"`),
+// which otherwise makes JSON.parse throw even though the JSON is "obviously" well-formed
+// when viewed in a log/browser. Only touches characters INSIDE quoted string literals —
+// whitespace/newlines used for pretty-printing OUTSIDE strings are left untouched.
+function sanitizeJsonControlChars(input) {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (inString) {
+      if (escaped) {
+        out += ch;
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        out += ch;
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+        out += ch;
+        continue;
+      }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') { out += '\\r'; continue; }
+      if (ch === '\t') { out += '\\t'; continue; }
+      const code = ch.charCodeAt(0);
+      if (code <= 0x1f) { out += '\\u' + code.toString(16).padStart(4, '0'); continue; }
+      out += ch;
+    } else {
+      if (ch === '"') inString = true;
+      out += ch;
+    }
+  }
+  return out;
+}
+
 function resolveProvider(body) {
   // Accept explicit provider names: 'groq', 'gpt-5.6', or 'auto'
   const wanted = (body.model || '').toString().trim().toLowerCase() || 'gpt-5.6';
@@ -181,6 +222,9 @@ function validateAndExtractJson(text, schemaHint) {
 
   // 1) Trim surrounding whitespace
   let s = raw.trim();
+
+  // 1b) Sanitize stray control characters inside JSON string values before any parse attempt
+  s = sanitizeJsonControlChars(s);
 
   // 2) If wrapped in triple-backtick code fence, extract inner block (```json ... ``` or ``` ...)
   const fenceMatch = s.match(/```(?:json)?\n([\s\S]*?)\n```/i);
