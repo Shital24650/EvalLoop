@@ -327,7 +327,7 @@ router.post('/generate-tests', async (req, res, next) => {
     const providerInfo = resolveProvider(req.body);
     // Groq is fast/cheap, so give it a bigger adversarial test batch. GPT-5.6 runs on
     // metered credits, so keep its batch small to conserve usage.
-    const testCount = providerInfo.provider === 'groq' ? 20 : 5;
+    const testCount = providerInfo.provider === 'groq' ? 10 : 5;
 
     const system = `You are an expert AI agent tester specializing in finding failure modes. Generate exactly ${testCount} adversarial test inputs for a ${agentType} agent.
 Target these 5 failure categories equally:
