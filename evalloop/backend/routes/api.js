@@ -578,8 +578,11 @@ Return ONLY valid JSON:
     // Scale the token budget with the batch size so larger (e.g. 20-test Groq) runs
     // don't get cut off mid-JSON — a fixed budget was truncating bigger batches.
     const batchMaxTokens = Math.min(8000, 900 + tests.length * 220);
-    const payload = await askJson(system, JSON.stringify(requestPayload), { ...providerInfo, maxTokens: batchMaxTokens, schemaHint: 'results' });
-    const results = requireArray(payload.results, 'results', tests.length).map((result, index) =>
+    const payload = await askJson(system, JSON.stringify(requestPayload), {
+  ...providerInfo,
+  maxTokens: batchMaxTokens,
+  schemaHint: 'results'
+});    const results = requireArray(payload.results, 'results', tests.length).map((result, index) =>
       normalizeTestResult(result, tests[index]?.id || index + 1),
     );
     let metrics = buildEvaluationMetrics(results, startedAt, estimateTokens(requestPayload), providerInfo.provider);
