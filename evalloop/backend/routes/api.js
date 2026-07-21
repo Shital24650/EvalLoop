@@ -431,7 +431,23 @@ async function askJson(system, user, { provider, apiKey, maxTokens, schemaHint }
 function normalizeTestResult(result, fallbackId) {
   const testId = typeof result.testId === 'number' ? Number(result.testId) : Number.isFinite(Number(fallbackId)) ? Number(fallbackId) : 0;
   const passed = result?.passed === true || result?.passed === 'true' || result?.passed === 1;
-  const failureType = (!passed && failureTypes.includes(result.failureType)) ? result.failureType : null;
+  let failureType = result.failureType;
+
+if (!failureTypes.includes(failureType)) {
+  const text = `${result.evidence || ""} ${failureType || ""}`.toLowerCase();
+
+  if (text.includes("halluc")) failureType = "hallucination";
+  else if (text.includes("syntax") || text.includes("logic") || text.includes("clarity"))
+    failureType = "prompt_misread";
+  else if (text.includes("tool"))
+    failureType = "bad_tool_call";
+  else if (text.includes("context"))
+    failureType = "context_overflow";
+  else if (text.includes("paradox") || text.includes("reasoning"))
+    failureType = "reasoning_loop";
+  else
+    failureType = "prompt_misread";
+}
   const evidence = typeof result.evidence === 'string' && result.evidence.trim() ? result.evidence : (passed ? 'No failure observed.' : 'Failure evidence unavailable.');
   const severity = severities.includes(result.severity) ? result.severity : 'medium';
   return {
