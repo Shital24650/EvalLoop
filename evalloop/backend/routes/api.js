@@ -337,6 +337,8 @@ Target these 5 failure categories equally:
 4. Context Overflow (agent loses track)
 5. Reasoning Loop (agent contradicts itself)
 
+Keep each "input" and "description" to ONE short sentence (under 25 words) so the full response stays compact.
+
 Return ONLY valid JSON:
 {
   "tests": [
@@ -349,7 +351,10 @@ Return ONLY valid JSON:
   ]
 }`;
 
-    const payload = await askJson(system, agentPrompt, { ...providerInfo, maxTokens: testCount > 10 ? 3800 : 2200 });
+    // Scale the token budget with the batch size so larger (e.g. 20-test Groq) runs
+    // don't get cut off mid-JSON — a fixed budget was truncating bigger batches.
+    const genMaxTokens = Math.min(8000, 900 + testCount * 220);
+    const payload = await askJson(system, agentPrompt, { ...providerInfo, maxTokens: genMaxTokens });
     const tests = requireArray(payload.tests, 'tests', 1).slice(0, testCount);
     return res.json({ tests, warnings });
   } catch (error) {
@@ -406,6 +411,7 @@ router.post('/run-tests-batch', async (req, res, next) => {
     if (cached) return res.json({ ...cached, cached: true, warnings });
 
     const system = `You are evaluating an AI agent prompt against ${tests.length} adversarial test inputs for a ${agentType} agent. For each test, determine if the agent would pass or fail.
+Keep each "evidence" value to ONE short sentence (under 20 words) so the full response stays compact.
 Return ONLY valid JSON:
 {
   "results": [
@@ -420,7 +426,10 @@ Return ONLY valid JSON:
 }`;
 
     const providerInfo = resolveProvider(req.body);
-    const payload = await askJson(system, JSON.stringify(requestPayload), { ...providerInfo, maxTokens: 3500 });
+    // Scale the token budget with the batch size so larger (e.g. 20-test Groq) runs
+    // don't get cut off mid-JSON — a fixed budget was truncating bigger batches.
+    const batchMaxTokens = Math.min(8000, 900 + tests.length * 220);
+    const payload = await askJson(system, JSON.stringify(requestPayload), { ...providerInfo, maxTokens: batchMaxTokens });
     const results = requireArray(payload.results, 'results', tests.length).map((result, index) =>
       normalizeTestResult(result, tests[index]?.id || index + 1),
     );
