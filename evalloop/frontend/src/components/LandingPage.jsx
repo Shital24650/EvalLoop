@@ -6,7 +6,7 @@ export default function LandingPage() {
 
         <div className="hero-metrics">
           <div className="metric-card">
-            <strong>20+</strong>
+            <strong>10+</strong>
             <span>🤖 Evaluation Scenarios</span>
           </div>
 
