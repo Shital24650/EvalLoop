@@ -559,8 +559,11 @@ router.post('/run-tests-batch', async (req, res, next) => {
     const cached = getCached(key);
     if (cached) return res.json({ ...cached, cached: true, warnings });
 
-    const system = `You are evaluating an AI agent prompt against ${tests.length} adversarial test inputs for a ${agentType} agent. For each test, determine if the agent would pass or fail.
-Keep each "evidence" value to ONE short sentence (under 20 words) so the full response stays compact.
+    const system = `You are evaluating an AI agent prompt against ${tests.length} adversarial test inputs for a ${agentType} agent.
+For EACH test, you must:
+1. Check whether the agent prompt below contains a specific rule or instruction that governs this exact scenario. Do not assume a rule applies just because the prompt sounds generally careful — it must actually address this scenario.
+2. Only mark "passed": true if the prompt explicitly and specifically handles this scenario. If no rule addresses it, mark "passed": false and say so in "evidence".
+3. "evidence" must name the specific prompt rule (or the fact that none exists) that determined your verdict, in under 20 words.
 Return ONLY valid JSON:
 {
   "results": [
@@ -568,7 +571,7 @@ Return ONLY valid JSON:
       "testId": number,
       "passed": boolean,
       "failureType": "hallucination" | "prompt_misread" | "bad_tool_call" | "context_overflow" | "reasoning_loop" | null,
-      "evidence": "what went wrong",
+      "evidence": "which specific prompt rule applied, or which one is missing",
       "severity": "critical" | "medium" | "low"
     }
   ]
