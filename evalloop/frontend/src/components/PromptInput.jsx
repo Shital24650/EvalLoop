@@ -1,4 +1,4 @@
-export const DEMO_PROMPT = `You are a customer support agent for ShopEase,
+  export const DEMO_PROMPT = `You are a customer support agent for ShopEase,
 an online retail store. Help customers with their
 orders, returns, and refunds.
 
@@ -69,8 +69,8 @@ export default function PromptInput({
 
       <p className="hint model-test-count-hint">
         {model === 'groq'
-          ? 'Running the full 20 test cases with Groq.'
-          : 'Running top 5 test cases with GPT-5.6 to conserve credits — switch to Groq for the full 20-test suite.'}
+          ? 'Running top 10 test cases with Groq.'
+          : 'Running top 5 test cases with GPT-5.6 to conserve credits — switch to Groq for the bigger 10-test batch.'}
       </p>
 
       <div className="controls byok-row">
