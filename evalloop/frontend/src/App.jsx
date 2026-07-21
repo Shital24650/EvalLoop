@@ -20,7 +20,12 @@ import SuccessBanner from './components/SuccessBanner.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const HISTORY_KEY = 'evalloop-history';
-const TEST_COUNT = 20;
+const TEST_COUNT = 20; // demo/fallback batch size only
+function expectedTestCountFor(model) {
+  // Groq is fast/cheap, so it gets a bigger adversarial batch. GPT-5.6 runs on
+  // metered credits, so keep its batch small to conserve usage.
+  return model === 'groq' ? 20 : 5;
+}
 
 const failureLabels = {
   hallucination: 'Hallucination',
@@ -209,6 +214,7 @@ function App() {
         return;
       }
       const modelPayload = { model, ...(useOwnKey && apiKey.trim() ? { apiKey: apiKey.trim() } : {}) };
+      const expectedTestCount = forceDemo ? TEST_COUNT : expectedTestCountFor(model);
 
       setRunning(true);
       setLoading(true);
@@ -234,15 +240,15 @@ function App() {
       try {
         updateProgress('Analyzing prompt', 8, 'Prompt structure analysis', 'none');
         await addLine('[00:01] 🔍 Analyzing agent prompt...');
-        await addLine(`[00:03] ⚡ Generating 20 edge case tests for ${overrideAgentType} agent...`, 'section');
+        await addLine(`[00:03] ⚡ Generating ${expectedTestCount} edge case tests for ${overrideAgentType} agent...`, 'section');
 
         updateProgress('Generating tests', 18, 'Creating adversarial test suite', forceDemo ? 'demo' : 'POST /generate-tests');
         const tests = forceDemo
           ? fallbackTests
           : (await postJson('/generate-tests', { agentPrompt: sourcePrompt, agentType: overrideAgentType, ...modelPayload })).tests || [];
 
-        if (tests.length !== TEST_COUNT) {
-          throw new Error(`Expected ${TEST_COUNT} generated tests, received ${tests.length}.`);
+        if (tests.length !== expectedTestCount) {
+          throw new Error(`Expected ${expectedTestCount} generated tests, received ${tests.length}.`);
         }
 
         let currentPrompt = sourcePrompt;
@@ -264,14 +270,14 @@ function App() {
           const iterationResults = Array.isArray(batchPayload.results) ? batchPayload.results : [];
           lastMetrics = batchPayload.metrics || lastMetrics;
 
-          if (iterationResults.length !== TEST_COUNT) {
-            throw new Error(`Expected ${TEST_COUNT} test results, received ${iterationResults.length}.`);
+          if (iterationResults.length !== expectedTestCount) {
+            throw new Error(`Expected ${expectedTestCount} test results, received ${iterationResults.length}.`);
           }
 
           for (const result of iterationResults) {
-            updateProgress(`Iteration ${iteration}`, Math.min(85, 35 + ((iteration - 1) / maxIterations) * 45 + (result.testId / TEST_COUNT) * 20), `Test ${result.testId}/20`, forceDemo ? 'demo batch' : 'POST /run-tests-batch');
+            updateProgress(`Iteration ${iteration}`, Math.min(85, 35 + ((iteration - 1) / maxIterations) * 45 + (result.testId / expectedTestCount) * 20), `Test ${result.testId}/${expectedTestCount}`, forceDemo ? 'demo batch' : 'POST /run-tests-batch');
             await addLine(
-              `[00:${String(6 + result.testId).padStart(2, '0')}] 🧪 Test ${String(result.testId).padStart(2, '0')}/20 — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`,
+              `[00:${String(6 + result.testId).padStart(2, '0')}] 🧪 Test ${String(result.testId).padStart(2, '0')}/${expectedTestCount} — ${result.passed ? 'PASS ✅' : 'FAIL ❌'}`,
               result.passed ? 'pass' : 'fail',
             );
 
@@ -283,13 +289,13 @@ function App() {
           }
 
           const iterationFailures = allFailures.length - failureCountBeforeIteration;
-          const score = Math.round(((TEST_COUNT - iterationFailures) / TEST_COUNT) * 100);
+          const score = Math.round(((expectedTestCount - iterationFailures) / expectedTestCount) * 100);
           if (iteration === 1) before = score;
           after = score;
 
           await addLine('[00:28] ━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'section');
           await addLine(
-            `[00:28] ${score >= threshold ? '✅' : '⚠️'} ITERATION ${iteration} COMPLETE\n         Reliability Score: ${score}%\n         Passed: ${TEST_COUNT - iterationFailures}/20 tests`,
+            `[00:28] ${score >= threshold ? '✅' : '⚠️'} ITERATION ${iteration} COMPLETE\n         Reliability Score: ${score}%\n         Passed: ${expectedTestCount - iterationFailures}/${expectedTestCount} tests`,
             'section',
           );
 
