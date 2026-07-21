@@ -1,5 +1,5 @@
 /* evalloop/backend/aiClient.js
-   Reworked: safer retries/backoff, Gemini fallbacks, response_format fallback,
+   Reworked: safer retries/backoff, Groq fallback provider, response_format fallback,
    empty/blocked output detection, masked logging, request dedupe, and timeouts.
 */
 import OpenAI from 'openai';
@@ -12,20 +12,12 @@ function parseKeyList(envValue) {
 }
 
 const OPENAI_KEYS = parseKeyList(process.env.OPENAI_API_KEYS || process.env.OPENAI_API_KEY);
-const GEMINI_KEYS = parseKeyList(process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY);
+const GROQ_KEYS = parseKeyList(process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY);
 
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+const GROQ_BASE_URL = process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-terra';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-
-// A small ordered fallback list for Gemini models to try if one is not found.
-const GEMINI_FALLBACK_MODELS = [
-  GEMINI_MODEL,
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-
-];
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
 const REQUEST_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 120000);
 const DEFAULT_MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2500);
@@ -107,6 +99,201 @@ function ensurePromptSafe(text) {
     t = t.slice(0, MAX_PROMPT_CHARS);
   }
   // Basic sanitization: remove unexpected control characters
+  return t.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ');
+}
+
+async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxTokens }) {
+  // Use the official SDK where possible. We'll try to use response_format
+  // but fall back gracefully if provider doesn't support it.
+  const client = new OpenAI({ apiKey, baseURL, timeout: REQUEST_TIMEOUT_MS });
+
+  const messages = [
+    { role: 'system', content: ensurePromptSafe(system) },
+    { role: 'user', content: ensurePromptSafe(user) },
+  ];
+
+  const effectiveMaxTokens = Math.max(MIN_MAX_TOKENS, maxTokens || DEFAULT_MAX_TOKENS);
+
+  // First try: use response_format (preferred for structured JSON)
+  try {
+     const response = await client.chat.completions.create({
+  model,
+  messages,
+  temperature: 0,
+  max_tokens: effectiveMaxTokens,
+  response_format: { type: "json_object" },
+});
+    return response.choices?.[0]?.message?.content;
+  } catch (err) {
+    const status = err?.status || err?.response?.status;
+    const message = String(err?.message || (err?.response && JSON.stringify(err.response)) || err);
+    // If response_format is unsupported (some endpoints), fall back to plain chat content
+    if (message.toLowerCase().includes('response_format') || message.toLowerCase().includes('unsupported') || status === 400 || status === 422) {
+      // second attempt: ask for JSON string in plain content (explicit instruction)
+      try {
+        const fallbackMessages = [
+          { role: 'system', content: ensurePromptSafe(system) },
+          { role: 'user', content: ensurePromptSafe(user) + '\n\nReturn ONLY valid JSON (no prose).'},
+        ];
+        const response = await client.chat.completions.create({
+  model,
+  max_tokens: effectiveMaxTokens,
+  temperature: 0,
+  messages: fallbackMessages,
+});
+        return response.choices?.[0]?.message?.content;
+      } catch (err2) {
+        // bubble up the original or the new error as appropriate
+        err2.original = err;
+        throw err2;
+      }
+    }
+    // For 402 affordable token suggestions, try a single retry with smaller max_tokens if feasible
+    if (status === 402) {
+      const affordable = parseAffordableTokens(message);
+      if (affordable && affordable >= MIN_MAX_TOKENS && affordable < effectiveMaxTokens) {
+        const client2 = new OpenAI({ apiKey, baseURL, timeout: REQUEST_TIMEOUT_MS });
+        try {
+          const retryResponse = await client2.chat.completions.create({
+  model,
+  max_tokens: affordable,
+  temperature: 0,
+  messages,
+});
+          return retryResponse.choices?.[0]?.message?.content;
+        } catch (err3) {
+          // continue to throw original
+        }
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * Ask a provider for a JSON response with robust handling, key rotation,
+ * retries, backoff, fallbacks and helpful errors.
+ */
+export async function askProvider({ provider = 'gpt-5.6', apiKey, system, user, maxTokens }) {
+  const isGroq = provider === 'groq';
+  const keyPool = apiKey ? [apiKey] : isGroq ? GROQ_KEYS : OPENAI_KEYS;
+
+  if (!system || !user) throw httpError(400, 'Missing system or user prompt.');
+  system = ensurePromptSafe(system);
+  user = ensurePromptSafe(user);
+
+  if (user.length > MAX_PROMPT_CHARS || system.length > MAX_PROMPT_CHARS) {
+    throw httpError(413, `Prompt too large. Limit is ${MAX_PROMPT_CHARS} characters.`);
+  }
+
+  if (!Array.isArray(keyPool) || keyPool.length === 0) {
+    throw httpError(503, isGroq ? 'No Groq API key configured' : 'No GPT-5.6 API key configured');
+  }
+
+  const requestSignature = `${provider}:${system.slice(0,200)}:${user.slice(0,200)}:${String(maxTokens || '')}`;
+  // If identical request already in flight, await the same promise
+  if (inFlightRequests.has(requestSignature)) {
+    try {
+      const existing = await inFlightRequests.get(requestSignature);
+      return existing;
+    } catch (e) {
+      // fall through to re-try
+    }
+  }
+
+  const callPromise = (async () => {
+    let lastError;
+    for (let i = 0; i < keyPool.length; i += 1) {
+      const key = keyPool[i];
+      try {
+        if (isGroq) {
+          // Groq exposes an OpenAI-compatible chat/completions endpoint, so reuse that caller.
+          const raw = await retryWithBackoff(
+  () =>
+    callOpenAiCompatible({
+      apiKey: key,
+      baseURL: GROQ_BASE_URL,
+      model: GROQ_MODEL,
+      system,
+      user,
+      maxTokens,
+    }),
+  (err) => {
+    const status = err?.status || err?.response?.status;
+    return isTransientStatus(status) || isRotatable(err);
+  }
+);
+
+return {
+  raw,
+  provider: 'groq',
+  usedFallbackKeyIndex: i,
+};
+        } else {
+          // Use backoff around OpenAI/OpenRouter calls (these can produce transient errors)
+          // Treat keys that start with 'sk-or-' as OpenRouter keys; otherwise 'sk-' implies OpenAI
+          const isOfficialOpenAiKey = key && typeof key === 'string' && key.startsWith('sk-') && !key.startsWith('sk-or-');
+          const raw = await retryWithBackoff(
+  () =>
+    callOpenAiCompatible({
+      apiKey: key,
+      baseURL: isOfficialOpenAiKey ? undefined : OPENROUTER_BASE_URL,
+      model: OPENAI_MODEL,
+      system,
+      user,
+      maxTokens,
+    }),
+  (err) => {
+    const status = err?.status || err?.response?.status;
+    return isTransientStatus(status) || isRotatable(err);
+  }
+);
+
+return {
+  raw,
+  provider: 'gpt-5.6',
+  usedFallbackKeyIndex: i,
+};
+          }
+        }catch (error) {
+        lastError = error;
+        // If this error suggests rotating keys (auth/429/402) try next key; otherwise fail if last.
+        if (!isRotatable(error) || i === keyPool.length - 1) {
+          const status = error?.status || error?.response?.status;
+          let friendly;
+          if (status === 402) {
+            friendly = `${isGroq ? 'Groq' : 'GPT-5.6'} key ${i + 1}/${keyPool.length} is out of credits. Add credits, add another key to the pool, or lower OPENROUTER_MAX_TOKENS.`;
+          } else {
+            friendly = `${isGroq ? 'Groq' : 'GPT-5.6'} key ${i + 1}/${keyPool.length} failed: ${error.message}`;
+          }
+          const displayMessage = apiKey ? `Request failed with provided key: ${error.message}` : friendly;
+          // Log details server-side (mask)
+          try {
+            console.error('[aiClient] Final error (masked):', {
+              provider,
+              usedKeyIndex: i,
+              errorMessage: maskForLog(String(error.message)),
+              status,
+              details: error?.details ? { ...error.details } : undefined,
+            });
+          } catch (e) { /* ignore logging errors */ }
+          throw httpError(status && status < 500 ? status : 502, displayMessage);
+        }
+        // else try next key in pool after brief jittered backoff handled by retryWithBackoff above
+      }
+    }
+    // If we exhausted keys
+    throw lastError || new Error('No response from provider');
+  })();
+
+  inFlightRequests.set(requestSignature, callPromise);
+  try {
+    const result = await callPromise;
+    return result;
+  } finally {
+    inFlightRequests.delete(requestSignature);
+  }
+}  // Basic sanitization: remove unexpected control characters
   return t.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ');
 }
 
