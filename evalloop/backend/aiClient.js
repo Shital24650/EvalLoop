@@ -146,7 +146,6 @@ async function callOpenAiCompatible({ apiKey, baseURL, model, system, user, maxT
   model,
   max_tokens: effectiveMaxTokens,
   temperature: 0,
-  response_format: { type: 'json_object' },  // ← ADD THIS BACK
   messages: fallbackMessages,
 });
         return response.choices?.[0]?.message?.content;
