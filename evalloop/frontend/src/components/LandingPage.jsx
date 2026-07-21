@@ -21,7 +21,7 @@ export default function LandingPage() {
           </div>
 
           <div className="metric-card">
-            <strong>GPT-5.6 + Gemini</strong>
+            <strong>GPT-5.6 + Groq</strong>
             <span>⚡ Multi-Model Support</span>
           </div>
         </div>
