@@ -1,8 +1,8 @@
 export default function ModelCard({ metrics = {}, modelSelection = '' }) {
   const modelKey = (metrics.model || modelSelection || '').toLowerCase();
-  const isGemini = modelKey.includes('gemini') || modelKey === 'gemini';
-  const modelUsed = isGemini ? 'Gemini 2.5 Pro' : 'GPT-5.6';
-  const provider = isGemini ? 'Google AI' : 'OpenAI';
+  const isGroq = modelKey.includes('groq');
+  const modelUsed = isGroq ? 'Llama 3.3 70B (Groq)' : 'GPT-5.6';
+  const provider = isGroq ? 'Groq' : 'OpenAI';
   const status = metrics && Object.keys(metrics).length > 0 ? 'Completed Successfully' : 'Completed Successfully';
 
   return (
