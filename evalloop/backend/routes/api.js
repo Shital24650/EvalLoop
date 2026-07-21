@@ -380,7 +380,7 @@ function extractBalancedJsonCandidates(input) {
   return candidates;
 }
 
-async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
+async function askJson(system, user, { provider, apiKey, maxTokens, schemaHint } = {}) {
   // askProvider returns { raw, provider, usedFallbackKeyIndex } normally
   const { raw, provider: usedProvider } = await askProvider({ provider, apiKey, system, user, maxTokens });
 
@@ -389,8 +389,13 @@ async function askJson(system, user, { provider, apiKey, maxTokens } = {}) {
     throw httpError(502, `${usedProvider} returned an empty response.`);
   }
 
-  // Attempt to validate/extract JSON; log the raw output truncated if parsing fails
-  const hint = system && system.toLowerCase().includes('adversarial test input') ? 'tests' : system && system.toLowerCase().includes('results') ? 'results' : undefined;
+  // schemaHint is passed explicitly by each route now — NOT guessed from the system
+  // prompt text. The old guess (`system.includes('adversarial test input') ? 'tests' : ...`)
+  // broke on /run-tests-batch: its system prompt describes evaluating "adversarial test
+  // inputs" even though the endpoint returns a "results" array, so the guess resolved to
+  // 'tests', which made every valid parse get rejected for lacking a .tests array —
+  // that was the real cause of the 502s, not malformed model output.
+  const hint = schemaHint;
 
   try {
     return validateAndExtractJson(raw, hint);
@@ -498,7 +503,7 @@ Return ONLY valid JSON:
     // Scale the token budget with the batch size so larger (e.g. 20-test Groq) runs
     // don't get cut off mid-JSON — a fixed budget was truncating bigger batches.
     const genMaxTokens = Math.min(8000, 900 + testCount * 220);
-    const payload = await askJson(system, agentPrompt, { ...providerInfo, maxTokens: genMaxTokens });
+    const payload = await askJson(system, agentPrompt, { ...providerInfo, maxTokens: genMaxTokens, schemaHint: 'tests' });
     const tests = requireArray(payload.tests, 'tests', 1).slice(0, testCount);
     return res.json({ tests, warnings });
   } catch (error) {
@@ -573,7 +578,7 @@ Return ONLY valid JSON:
     // Scale the token budget with the batch size so larger (e.g. 20-test Groq) runs
     // don't get cut off mid-JSON — a fixed budget was truncating bigger batches.
     const batchMaxTokens = Math.min(8000, 900 + tests.length * 220);
-    const payload = await askJson(system, JSON.stringify(requestPayload), { ...providerInfo, maxTokens: batchMaxTokens });
+    const payload = await askJson(system, JSON.stringify(requestPayload), { ...providerInfo, maxTokens: batchMaxTokens, schemaHint: 'results' });
     const results = requireArray(payload.results, 'results', tests.length).map((result, index) =>
       normalizeTestResult(result, tests[index]?.id || index + 1),
     );
