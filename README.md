@@ -557,8 +557,7 @@ No — `/rewrite-prompt` detects when the model returns an unchanged or empty `i
 
 ## How Codex Was Used
 
-This project was developed iteratively inside **Codex**, powered by **GPT-5.6**, across the full development lifecycle:
-
+This project was developed almost entirely inside **OpenAI Codex**, powered by **GPT-5.6**, across multiple development sessions. Codex was used throughout the complete software lifecycle, including architecture design, implementation, debugging, testing, documentation, deployment preparation, and iterative refinement.
 - Project scaffolding for the backend (Express app, routes, middleware), frontend (React + Vite dashboard, 24 components), and CLI
 - API endpoint implementation and iteration (`/generate-tests`, `/run-test`, `/run-tests-batch`, `/rewrite-prompt`, `/security-scan`, `/test-chain`, `/compare-versions`)
 - The multi-provider model client (`aiClient.js`) — key rotation, retry/backoff, response-format fallback, and the Groq fallback path
@@ -573,7 +572,7 @@ This project was developed iteratively inside **Codex**, powered by **GPT-5.6**,
 
 ## How GPT-5.6 Was Used
 
-GPT-5.6 played two distinct roles in this project:
+GPT-5.6 served both as the primary development model inside OpenAI Codex and as the runtime intelligence powering EvalLoop.
 
 **During development**, inside Codex, GPT-5.6 was the primary model used for architecture discussions, prompt engineering, feature implementation, debugging, code generation, and documentation — it was the build tool for essentially every file in the repository, not a single isolated pass.
 
