@@ -130,9 +130,6 @@ EvalLoop turns "it feels reliable" into a measurable, reproducible, CI-enforceab
 
 ## Architecture
 
-<p align="center">
-  <img src="assets/architecture.png" alt="EvalLoop system architecture diagram" width="100%">
-</p>
 
 EvalLoop is organized into six layers:
 
